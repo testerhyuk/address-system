@@ -2,6 +2,16 @@ spring:
   config:
     activate:
       on-profile: local
+  datasource:
+    url: jdbc:postgresql://${ADDRESS_DB_HOST:localhost}:${ADDRESS_DB_PORT:5432}/${ADDRESS_DB_NAME:address_system}?ApplicationName=address-system
+    username: ${ADDRESS_DB_USER:address_app}
+    password: ${ADDRESS_DB_PASSWORD:address_local_password}
+    hikari:
+      pool-name: address-system-pool
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT:5000}
+      connection-init-sql: SET search_path TO address, public
 
 management:
   endpoint:

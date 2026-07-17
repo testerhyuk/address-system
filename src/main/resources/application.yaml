@@ -7,6 +7,16 @@ spring:
     time-zone: UTC
   lifecycle:
     timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT:30s}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: address
+    schemas: address
+    create-schemas: true
+    clean-disabled: true
+    validate-on-migrate: true
+    baseline-on-migrate: false
+    out-of-order: false
 
 server:
   port: ${SERVER_PORT:8080}
