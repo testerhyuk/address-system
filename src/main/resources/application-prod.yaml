@@ -1,0 +1,13 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.address.address_system: ${APP_LOG_LEVEL:INFO}

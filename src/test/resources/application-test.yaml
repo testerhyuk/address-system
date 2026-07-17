@@ -1,0 +1,13 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: WARN
