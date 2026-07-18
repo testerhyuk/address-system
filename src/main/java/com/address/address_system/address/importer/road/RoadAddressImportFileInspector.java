@@ -1,11 +1,13 @@
 package com.address.address_system.address.importer.road;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -14,6 +16,12 @@ import java.util.HexFormat;
 public class RoadAddressImportFileInspector {
 
     private static final int HASH_BUFFER_SIZE = 64 * 1024;
+
+    private final RoadAddressCsvHeaderValidator headerValidator;
+
+    public RoadAddressImportFileInspector(RoadAddressCsvHeaderValidator headerValidator) {
+        this.headerValidator = headerValidator;
+    }
 
     public RoadAddressImportFile inspect(Path configuredPath) {
         if (configuredPath == null || configuredPath.toString().isBlank()) {
@@ -44,7 +52,8 @@ public class RoadAddressImportFileInspector {
                     path,
                     fileName,
                     Files.size(path),
-                    calculateSha256(path)
+                    calculateSha256(path),
+                    detectSchema(path)
             );
         }
         catch (IOException exception) {
@@ -53,6 +62,19 @@ public class RoadAddressImportFileInspector {
                     "도로명주소 CSV 파일 정보를 읽을 수 없습니다: " + path,
                     exception
             );
+        }
+    }
+
+    private RoadAddressCsvFormat.Schema detectSchema(Path path) throws IOException {
+        try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            String header = reader.readLine();
+            if (header == null) {
+                throw new RoadAddressImportException(
+                        RoadAddressImportFailureCode.INVALID_HEADER,
+                        "도로명주소 CSV 파일이 비어 있습니다"
+                );
+            }
+            return headerValidator.detect(header);
         }
     }
 

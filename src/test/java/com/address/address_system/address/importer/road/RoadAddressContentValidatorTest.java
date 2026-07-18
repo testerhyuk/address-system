@@ -23,6 +23,36 @@ class RoadAddressContentValidatorTest {
     }
 
     @Test
+    void acceptsSnapshotFieldsThatAreUnknownDuringFullImport() throws Exception {
+        RoadAddressContentValidator fullValidator =
+                new RoadAddressContentValidator(RoadAddressImportMode.FULL);
+        RoadAddressStagingRow row = validRow()
+                .legalDongCode(null)
+                .effectiveDate(null)
+                .apartmentFlag(null)
+                .movementReasonCode(null)
+                .build();
+
+        RoadAddressValidationResult result = fullValidator.process(row);
+
+        assertThat(result.isValid()).isTrue();
+    }
+
+    @Test
+    void rejectsValueThatConflictsWithManagementNumber() throws Exception {
+        RoadAddressStagingRow row = validRow().roadCode("261109999999").build();
+
+        RoadAddressValidationResult result = validator.process(row);
+
+        assertThat(result.violations()).singleElement().satisfies(violation -> {
+            assertThat(violation.fieldName()).isEqualTo("road_code");
+            assertThat(violation.reasonCode()).isEqualTo(
+                    RoadAddressContentValidator.MANAGEMENT_NUMBER_COMPONENT_MISMATCH
+            );
+        });
+    }
+
+    @Test
     void collectsAllInvalidFormatsAndCodes() throws Exception {
         RoadAddressStagingRow row = validRow()
                 .mgmtNum("123")
@@ -177,15 +207,16 @@ class RoadAddressContentValidatorTest {
         private UUID batchId = UUID.fromString("00000000-0000-0000-0000-000000000601");
         private long sourceRowNumber = 2;
         private String mgmtNum = "26110101300600100000100002";
+        private String legalAreaCode = "26110101";
         private String legalDongCode = "2611010100";
         private String sido = "부산광역시";
         private String sigungu = "중구";
         private String bDongName = "영주동";
-        private String roadCode = "261102000001";
+        private String roadCode = "261103006001";
         private String roadName = "초량상로";
         private String undergroundFlag = "0";
         private String buildMain = "1";
-        private String buildSub = "0";
+        private String buildSub = "2";
         private String zipCode = "48910";
         private String effectiveDate = "20260718";
         private String apartmentFlag = "1";
@@ -278,6 +309,7 @@ class RoadAddressContentValidatorTest {
                     batchId,
                     sourceRowNumber,
                     mgmtNum,
+                    legalAreaCode,
                     legalDongCode,
                     sido,
                     sigungu,

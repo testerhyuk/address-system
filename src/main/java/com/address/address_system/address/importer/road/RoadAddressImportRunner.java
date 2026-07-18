@@ -40,6 +40,7 @@ public class RoadAddressImportRunner implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments arguments) throws Exception {
         RoadAddressImportFile file = fileInspector.inspect(properties.getFile());
+        validateSourceMode(file);
         RoadAddressImportBatchRepository.RegisteredBatch batch =
                 batchRepository.registerOrResume(
                         file,
@@ -90,11 +91,22 @@ public class RoadAddressImportRunner implements ApplicationRunner {
         }
     }
 
+    private void validateSourceMode(RoadAddressImportFile file) {
+        if (file.schema() == RoadAddressCsvFormat.Schema.SNAPSHOT
+                && properties.getMode() != RoadAddressImportMode.FULL) {
+            throw new RoadAddressImportException(
+                    RoadAddressImportFailureCode.UNSUPPORTED_SOURCE_MODE,
+                    "10컬럼 스냅샷 CSV는 FULL 적재에서만 사용할 수 있습니다"
+            );
+        }
+    }
+
     private JobParameters createJobParameters(RoadAddressImportFile file, UUID batchId) {
         return new JobParametersBuilder()
                 .addString("fileSha256", file.sha256(), true)
                 .addString("importMode", properties.getMode().name(), true)
                 .addString("referenceDate", properties.getReferenceDate().toString(), true)
+                .addString("csvSchema", file.schema().name(), true)
                 .addString("filePath", file.path().toString(), false)
                 .addString("batchId", batchId.toString(), false)
                 .toJobParameters();

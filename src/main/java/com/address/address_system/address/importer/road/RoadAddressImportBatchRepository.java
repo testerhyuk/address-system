@@ -50,7 +50,11 @@ public class RoadAddressImportBatchRepository {
                             || !batch.referenceDate().equals(referenceDate)) {
                         throw duplicateSourceFile();
                     }
-                    if ("FAILED".equals(batch.status()) || "REGISTERED".equals(batch.status())) {
+                    if ("FAILED".equals(batch.status())) {
+                        resetFailedBatch(batch.batchId());
+                        return batch;
+                    }
+                    if ("REGISTERED".equals(batch.status())) {
                         return batch;
                     }
                     throw duplicateSourceFile();
@@ -85,12 +89,41 @@ public class RoadAddressImportBatchRepository {
         }
     }
 
+    private void resetFailedBatch(UUID batchId) {
+        jdbcTemplate.update(
+                "DELETE FROM address.address_import_rejection WHERE batch_id = ?",
+                batchId
+        );
+        jdbcTemplate.update(
+                "DELETE FROM address.address_road_staging WHERE batch_id = ?",
+                batchId
+        );
+        jdbcTemplate.update(
+                """
+                UPDATE address.address_import_batch
+                SET status = 'REGISTERED',
+                    total_row_count = NULL,
+                    accepted_row_count = NULL,
+                    rejected_row_count = NULL,
+                    completed_at = NULL,
+                    failure_reason_code = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE batch_id = ?
+                  AND status = 'FAILED'
+                """,
+                batchId
+        );
+    }
+
     public void markLoading(UUID batchId) {
         int updated = jdbcTemplate.update(
                 """
                 UPDATE address.address_import_batch
                 SET status = 'LOADING',
                     started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
+                    total_row_count = NULL,
+                    accepted_row_count = NULL,
+                    rejected_row_count = NULL,
                     completed_at = NULL,
                     failure_reason_code = NULL,
                     updated_at = CURRENT_TIMESTAMP
