@@ -29,8 +29,11 @@ import org.springframework.transaction.PlatformTransactionManager;
 public class RoadAddressValidationStepConfiguration {
 
     @Bean
-    RoadAddressContentValidator roadAddressContentValidator() {
-        return new RoadAddressContentValidator();
+    @org.springframework.batch.core.configuration.annotation.StepScope
+    RoadAddressContentValidator roadAddressContentValidator(
+            @Value("#{jobParameters['importMode']}") String importMode
+    ) {
+        return new RoadAddressContentValidator(RoadAddressImportMode.valueOf(importMode));
     }
 
     @Bean
@@ -145,20 +148,21 @@ public class RoadAddressValidationStepConfiguration {
     }
 
     @Bean
-    Step roadAddressValidationFinalizationStep(
+    Step roadAddressApplyPreparationStep(
             JobRepository jobRepository,
             PlatformTransactionManager transactionManager,
             RoadAddressImportBatchRepository batchRepository,
             RoadAddressImportProperties properties
     ) {
-        return new StepBuilder("roadAddressValidationFinalizationStep", jobRepository)
+        return new StepBuilder("roadAddressApplyPreparationStep", jobRepository)
                 .tasklet((contribution, chunkContext) -> {
-                    batchRepository.markCompleted(
+                    batchRepository.markReadyForApply(
                             batchIdOf(contribution),
                             properties.getMaxSkippedRows()
                     );
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
+                .allowStartIfComplete(true)
                 .build();
     }
 

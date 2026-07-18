@@ -6,6 +6,7 @@ import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -33,6 +34,12 @@ public class RoadAddressContentValidator
 
     private static final DateTimeFormatter BASIC_DATE_FORMATTER =
             DateTimeFormatter.BASIC_ISO_DATE.withResolverStyle(ResolverStyle.STRICT);
+
+    private final RoadAddressImportMode importMode;
+
+    public RoadAddressContentValidator(RoadAddressImportMode importMode) {
+        this.importMode = Objects.requireNonNull(importMode, "importMode");
+    }
 
     @Override
     public RoadAddressValidationResult process(RoadAddressStagingRow row) {
@@ -99,13 +106,7 @@ public class RoadAddressContentValidator
                 APARTMENT_FLAGS,
                 "공동주택구분은 0 또는 1이어야 합니다"
         );
-        validateRequiredCode(
-                violations,
-                "movement_reason_code",
-                row.movementReasonCode(),
-                MOVEMENT_REASON_CODES,
-                "이동사유코드는 31, 34, 63 중 하나여야 합니다"
-        );
+        validateMovementReasonCode(violations, row.movementReasonCode());
         validateOptionalText(
                 violations,
                 "build_nm_official",
@@ -202,6 +203,9 @@ public class RoadAddressContentValidator
             String value
     ) {
         String normalized = normalize(value);
+        if (normalized == null && importMode == RoadAddressImportMode.FULL) {
+            return;
+        }
         if (normalized == null) {
             addRequiredViolation(violations, "effective_date", value);
             return;
@@ -227,6 +231,33 @@ public class RoadAddressContentValidator
                     "효력발생일은 실제 존재하는 날짜여야 합니다"
             ));
         }
+    }
+
+    private void validateMovementReasonCode(
+            List<RoadAddressValidationResult.Violation> violations,
+            String value
+    ) {
+        String normalized = normalize(value);
+        if (importMode == RoadAddressImportMode.FULL) {
+            if (normalized == null || "31".equals(normalized)) {
+                return;
+            }
+            violations.add(new RoadAddressValidationResult.Violation(
+                    INVALID_CODE_VALUE,
+                    "movement_reason_code",
+                    value,
+                    "FULL 적재의 이동사유코드는 비어 있거나 31이어야 합니다"
+            ));
+            return;
+        }
+
+        validateRequiredCode(
+                violations,
+                "movement_reason_code",
+                value,
+                MOVEMENT_REASON_CODES,
+                "이동사유코드는 31, 34, 63 중 하나여야 합니다"
+        );
     }
 
     private void validateLength(
