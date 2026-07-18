@@ -46,7 +46,7 @@ public class RoadAddressImportRunner implements ApplicationRunner {
 
         batchRepository.markLoading(batchId);
         log.info(
-                "도로명주소 적재를 시작합니다. batchId={}, fileName={}, fileSizeBytes={}",
+                "도로명주소 적재와 검증을 시작합니다. batchId={}, fileName={}, fileSizeBytes={}",
                 batchId,
                 file.fileName(),
                 file.fileSizeBytes()
@@ -60,17 +60,17 @@ public class RoadAddressImportRunner implements ApplicationRunner {
             if (execution.getStatus() != BatchStatus.COMPLETED) {
                 throw new RoadAddressImportException(
                         failureCodeOfExecution(execution),
-                        "도로명주소 적재 작업이 완료되지 않았습니다: " + execution.getStatus()
+                        "도로명주소 적재와 검증 작업이 완료되지 않았습니다: " + execution.getStatus()
                 );
             }
 
             RoadAddressImportBatchRepository.ImportCounts counts =
-                    batchRepository.markReadyForValidation(batchId);
+                    batchRepository.getCompletedCounts(batchId);
             log.info(
-                    "도로명주소 적재를 완료했습니다. batchId={}, totalRows={}, stagingRows={}, rejectedRows={}",
+                    "도로명주소 적재와 검증을 완료했습니다. batchId={}, totalRows={}, acceptedRows={}, rejectedRows={}",
                     batchId,
                     counts.totalCount(),
-                    counts.stagingCount(),
+                    counts.acceptedCount(),
                     counts.rejectedCount()
             );
         }
