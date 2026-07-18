@@ -7,6 +7,7 @@ import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -20,8 +21,11 @@ public class RoadAddressContentValidator
     static final String FIELD_LENGTH_EXCEEDED = "FIELD_LENGTH_EXCEEDED";
     static final String INVALID_CODE_VALUE = "INVALID_CODE_VALUE";
     static final String INVALID_CALENDAR_DATE = "INVALID_CALENDAR_DATE";
+    static final String MANAGEMENT_NUMBER_COMPONENT_MISMATCH =
+            "MANAGEMENT_NUMBER_COMPONENT_MISMATCH";
 
     private static final Pattern MGMT_NUMBER_PATTERN = Pattern.compile("\\d{26}");
+    private static final Pattern LEGAL_AREA_CODE_PATTERN = Pattern.compile("\\d{8}");
     private static final Pattern LEGAL_DONG_CODE_PATTERN = Pattern.compile("\\d{10}");
     private static final Pattern ROAD_CODE_PATTERN = Pattern.compile("\\d{12}");
     private static final Pattern BUILDING_NUMBER_PATTERN = Pattern.compile("\\d{1,5}");
@@ -54,10 +58,17 @@ public class RoadAddressContentValidator
         );
         validateRequiredPattern(
                 violations,
+                "legal_area_code",
+                row.legalAreaCode(),
+                LEGAL_AREA_CODE_PATTERN,
+                "법정지역코드는 8자리 숫자여야 합니다"
+        );
+        validateOptionalPattern(
+                violations,
                 "legal_dong_code",
                 row.legalDongCode(),
                 LEGAL_DONG_CODE_PATTERN,
-                "법정동코드는 10자리 숫자여야 합니다"
+                "법정동코드는 값이 있는 경우 10자리 숫자여야 합니다"
         );
         validateRequiredText(violations, "sido", row.sido(), 40, "시도명");
         validateOptionalText(violations, "sigungu", row.sigungu(), 40, "시군구명");
@@ -99,13 +110,7 @@ public class RoadAddressContentValidator
                 "우편번호는 5자리 숫자여야 합니다"
         );
         validateEffectiveDate(violations, row.effectiveDate());
-        validateRequiredCode(
-                violations,
-                "apartment_flag",
-                row.apartmentFlag(),
-                APARTMENT_FLAGS,
-                "공동주택구분은 0 또는 1이어야 합니다"
-        );
+        validateApartmentFlag(violations, row.apartmentFlag());
         validateMovementReasonCode(violations, row.movementReasonCode());
         validateOptionalText(
                 violations,
@@ -121,8 +126,115 @@ public class RoadAddressContentValidator
                 400,
                 "시군구용건물명"
         );
+        validateManagementNumberComponents(violations, row);
 
         return new RoadAddressValidationResult(row, violations);
+    }
+
+    private void validateManagementNumberComponents(
+            List<RoadAddressValidationResult.Violation> violations,
+            RoadAddressStagingRow row
+    ) {
+        Optional<RoadAddressManagementNumber> parsed =
+                RoadAddressManagementNumber.parse(row.mgmtNum());
+        if (parsed.isEmpty()) {
+            return;
+        }
+
+        RoadAddressManagementNumber managementNumber = parsed.get();
+        validateComponent(
+                violations,
+                "legal_area_code",
+                row.legalAreaCode(),
+                managementNumber.legalAreaCode()
+        );
+        validateComponent(
+                violations,
+                "road_code",
+                row.roadCode(),
+                managementNumber.roadCode()
+        );
+        validateComponent(
+                violations,
+                "underground_flag",
+                row.undergroundFlag(),
+                managementNumber.undergroundFlag()
+        );
+        validateNumericComponent(
+                violations,
+                "build_main",
+                row.buildMain(),
+                managementNumber.buildMain()
+        );
+        validateNumericComponent(
+                violations,
+                "build_sub",
+                row.buildSub(),
+                managementNumber.buildSub()
+        );
+
+        String legalDongCode = normalize(row.legalDongCode());
+        if (legalDongCode != null
+                && LEGAL_DONG_CODE_PATTERN.matcher(legalDongCode).matches()
+                && !legalDongCode.startsWith(managementNumber.legalAreaCode())) {
+            addComponentMismatch(
+                    violations,
+                    "legal_dong_code",
+                    row.legalDongCode(),
+                    "법정동코드 앞 8자리가 관리번호의 법정지역코드와 일치하지 않습니다"
+            );
+        }
+    }
+
+    private void validateComponent(
+            List<RoadAddressValidationResult.Violation> violations,
+            String fieldName,
+            String actualValue,
+            String expectedValue
+    ) {
+        String normalized = normalize(actualValue);
+        if (normalized != null && !expectedValue.equals(normalized)) {
+            addComponentMismatch(
+                    violations,
+                    fieldName,
+                    actualValue,
+                    "관리번호에서 추출한 값 " + expectedValue + "와 일치하지 않습니다"
+            );
+        }
+    }
+
+    private void validateNumericComponent(
+            List<RoadAddressValidationResult.Violation> violations,
+            String fieldName,
+            String actualValue,
+            int expectedValue
+    ) {
+        String normalized = normalize(actualValue);
+        if (normalized == null || !BUILDING_NUMBER_PATTERN.matcher(normalized).matches()) {
+            return;
+        }
+        if (Integer.parseInt(normalized) != expectedValue) {
+            addComponentMismatch(
+                    violations,
+                    fieldName,
+                    actualValue,
+                    "관리번호에서 추출한 건물번호 " + expectedValue + "와 일치하지 않습니다"
+            );
+        }
+    }
+
+    private void addComponentMismatch(
+            List<RoadAddressValidationResult.Violation> violations,
+            String fieldName,
+            String value,
+            String detail
+    ) {
+        violations.add(new RoadAddressValidationResult.Violation(
+                MANAGEMENT_NUMBER_COMPONENT_MISMATCH,
+                fieldName,
+                value,
+                detail
+        ));
     }
 
     private void validateRequiredPattern(
@@ -138,6 +250,24 @@ public class RoadAddressContentValidator
             return;
         }
         if (!pattern.matcher(normalized).matches()) {
+            violations.add(new RoadAddressValidationResult.Violation(
+                    INVALID_FIELD_FORMAT,
+                    fieldName,
+                    value,
+                    formatMessage
+            ));
+        }
+    }
+
+    private void validateOptionalPattern(
+            List<RoadAddressValidationResult.Violation> violations,
+            String fieldName,
+            String value,
+            Pattern pattern,
+            String formatMessage
+    ) {
+        String normalized = normalize(value);
+        if (normalized != null && !pattern.matcher(normalized).matches()) {
             violations.add(new RoadAddressValidationResult.Violation(
                     INVALID_FIELD_FORMAT,
                     fieldName,
@@ -170,10 +300,9 @@ public class RoadAddressContentValidator
             String displayName
     ) {
         String normalized = normalize(value);
-        if (normalized == null) {
-            return;
+        if (normalized != null) {
+            validateLength(violations, fieldName, value, normalized, maxLength, displayName);
         }
-        validateLength(violations, fieldName, value, normalized, maxLength, displayName);
     }
 
     private void validateRequiredCode(
@@ -196,6 +325,23 @@ public class RoadAddressContentValidator
                     codeMessage
             ));
         }
+    }
+
+    private void validateApartmentFlag(
+            List<RoadAddressValidationResult.Violation> violations,
+            String value
+    ) {
+        String normalized = normalize(value);
+        if (normalized == null && importMode == RoadAddressImportMode.FULL) {
+            return;
+        }
+        validateRequiredCode(
+                violations,
+                "apartment_flag",
+                value,
+                APARTMENT_FLAGS,
+                "공동주택구분은 0 또는 1이어야 합니다"
+        );
     }
 
     private void validateEffectiveDate(
@@ -274,7 +420,7 @@ public class RoadAddressContentValidator
                     FIELD_LENGTH_EXCEEDED,
                     fieldName,
                     originalValue,
-                    displayName + "은 최대 " + maxLength + "자까지 허용됩니다"
+                    displayName + "은 최대 " + maxLength + "자까지 허용합니다"
             ));
         }
     }

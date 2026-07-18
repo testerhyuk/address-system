@@ -17,6 +17,7 @@ public class RoadAddressImportWriter implements ItemWriter<RoadAddressImportReco
                 batch_id,
                 source_row_number,
                 mgmt_num,
+                legal_area_code,
                 legal_dong_code,
                 sido,
                 sigungu,
@@ -32,7 +33,7 @@ public class RoadAddressImportWriter implements ItemWriter<RoadAddressImportReco
                 movement_reason_code,
                 build_nm_official,
                 build_nm_sgg
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
     private static final String INSERT_REJECTION_SQL = """
@@ -122,21 +123,22 @@ public class RoadAddressImportWriter implements ItemWriter<RoadAddressImportReco
         statement.setObject(1, row.batchId());
         statement.setLong(2, row.sourceRowNumber());
         statement.setString(3, row.mgmtNum());
-        statement.setString(4, row.legalDongCode());
-        statement.setString(5, row.sido());
-        statement.setString(6, row.sigungu());
-        statement.setString(7, row.bDongName());
-        statement.setString(8, row.roadCode());
-        statement.setString(9, row.roadName());
-        statement.setString(10, row.undergroundFlag());
-        statement.setString(11, row.buildMain());
-        statement.setString(12, row.buildSub());
-        statement.setString(13, row.zipCode());
-        statement.setString(14, row.effectiveDate());
-        statement.setString(15, row.apartmentFlag());
-        statement.setString(16, row.movementReasonCode());
-        statement.setString(17, row.buildNameOfficial());
-        statement.setString(18, row.buildNameSigungu());
+        statement.setString(4, row.legalAreaCode());
+        statement.setString(5, row.legalDongCode());
+        statement.setString(6, row.sido());
+        statement.setString(7, row.sigungu());
+        statement.setString(8, row.bDongName());
+        statement.setString(9, row.roadCode());
+        statement.setString(10, row.roadName());
+        statement.setString(11, row.undergroundFlag());
+        statement.setString(12, row.buildMain());
+        statement.setString(13, row.buildSub());
+        statement.setString(14, row.zipCode());
+        statement.setString(15, row.effectiveDate());
+        statement.setString(16, row.apartmentFlag());
+        statement.setString(17, row.movementReasonCode());
+        statement.setString(18, row.buildNameOfficial());
+        statement.setString(19, row.buildNameSigungu());
     }
 
     private void setRejectionParameters(PreparedStatement statement, RoadAddressRejectedRow row)

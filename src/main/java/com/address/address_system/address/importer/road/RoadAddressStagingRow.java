@@ -6,6 +6,7 @@ public record RoadAddressStagingRow(
         UUID batchId,
         long sourceRowNumber,
         String mgmtNum,
+        String legalAreaCode,
         String legalDongCode,
         String sido,
         String sigungu,

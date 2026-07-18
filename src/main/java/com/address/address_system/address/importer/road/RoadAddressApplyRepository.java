@@ -11,7 +11,9 @@ public class RoadAddressApplyRepository {
     private static final long ROAD_ADDRESS_APPLY_LOCK_KEY = 8_123_476_102_948_112L;
 
     private static final String CURRENT_ROW_EQUALS_STAGING = """
-            current_address.legal_dong_code = btrim(staging.legal_dong_code)
+            current_address.legal_area_code = btrim(staging.legal_area_code)
+            AND current_address.legal_dong_code IS NOT DISTINCT FROM
+                NULLIF(btrim(staging.legal_dong_code), '')
             AND current_address.sido = btrim(staging.sido)
             AND current_address.sigungu IS NOT DISTINCT FROM NULLIF(btrim(staging.sigungu), '')
             AND current_address.b_dong_name IS NOT DISTINCT FROM NULLIF(btrim(staging.b_dong_name), '')
@@ -21,7 +23,11 @@ public class RoadAddressApplyRepository {
             AND current_address.build_main = btrim(staging.build_main)::integer
             AND current_address.build_sub = btrim(staging.build_sub)::integer
             AND current_address.zip_code = btrim(staging.zip_code)
-            AND current_address.apartment = (btrim(staging.apartment_flag) = '1')
+            AND current_address.apartment_status = CASE btrim(staging.apartment_flag)
+                WHEN '1' THEN 'APARTMENT'
+                WHEN '0' THEN 'NON_APARTMENT'
+                ELSE 'UNKNOWN'
+            END
             AND current_address.build_name_official IS NOT DISTINCT FROM
                 NULLIF(btrim(staging.build_nm_official), '')
             AND current_address.build_name_sigungu IS NOT DISTINCT FROM
@@ -189,6 +195,7 @@ public class RoadAddressApplyRepository {
     private static final String INSERT_FULL_ADDRESSES = """
             INSERT INTO address.road_address (
                 mgmt_num,
+                legal_area_code,
                 legal_dong_code,
                 sido,
                 sigungu,
@@ -199,7 +206,7 @@ public class RoadAddressApplyRepository {
                 build_main,
                 build_sub,
                 zip_code,
-                apartment,
+                apartment_status,
                 build_name_official,
                 build_name_sigungu,
                 status,
@@ -210,7 +217,8 @@ public class RoadAddressApplyRepository {
             )
             SELECT
                 btrim(staging.mgmt_num),
-                btrim(staging.legal_dong_code),
+                btrim(staging.legal_area_code),
+                NULLIF(btrim(staging.legal_dong_code), ''),
                 btrim(staging.sido),
                 NULLIF(btrim(staging.sigungu), ''),
                 NULLIF(btrim(staging.b_dong_name), ''),
@@ -220,7 +228,11 @@ public class RoadAddressApplyRepository {
                 btrim(staging.build_main)::integer,
                 btrim(staging.build_sub)::integer,
                 btrim(staging.zip_code),
-                btrim(staging.apartment_flag) = '1',
+                CASE btrim(staging.apartment_flag)
+                    WHEN '1' THEN 'APARTMENT'
+                    WHEN '0' THEN 'NON_APARTMENT'
+                    ELSE 'UNKNOWN'
+                END,
                 NULLIF(btrim(staging.build_nm_official), ''),
                 NULLIF(btrim(staging.build_nm_sgg), ''),
                 'ACTIVE',
@@ -239,6 +251,7 @@ public class RoadAddressApplyRepository {
     private static final String INSERT_DELTA_ADDRESSES = """
             INSERT INTO address.road_address (
                 mgmt_num,
+                legal_area_code,
                 legal_dong_code,
                 sido,
                 sigungu,
@@ -249,7 +262,7 @@ public class RoadAddressApplyRepository {
                 build_main,
                 build_sub,
                 zip_code,
-                apartment,
+                apartment_status,
                 build_name_official,
                 build_name_sigungu,
                 status,
@@ -260,7 +273,8 @@ public class RoadAddressApplyRepository {
             )
             SELECT
                 btrim(staging.mgmt_num),
-                btrim(staging.legal_dong_code),
+                btrim(staging.legal_area_code),
+                NULLIF(btrim(staging.legal_dong_code), ''),
                 btrim(staging.sido),
                 NULLIF(btrim(staging.sigungu), ''),
                 NULLIF(btrim(staging.b_dong_name), ''),
@@ -270,7 +284,11 @@ public class RoadAddressApplyRepository {
                 btrim(staging.build_main)::integer,
                 btrim(staging.build_sub)::integer,
                 btrim(staging.zip_code),
-                btrim(staging.apartment_flag) = '1',
+                CASE btrim(staging.apartment_flag)
+                    WHEN '1' THEN 'APARTMENT'
+                    WHEN '0' THEN 'NON_APARTMENT'
+                    ELSE 'UNKNOWN'
+                END,
                 NULLIF(btrim(staging.build_nm_official), ''),
                 NULLIF(btrim(staging.build_nm_sgg), ''),
                 'ACTIVE',
@@ -291,7 +309,8 @@ public class RoadAddressApplyRepository {
 
     private static final String REACTIVATE_DELTA_ADDRESSES = """
             UPDATE address.road_address current_address
-            SET legal_dong_code = btrim(staging.legal_dong_code),
+            SET legal_area_code = btrim(staging.legal_area_code),
+                legal_dong_code = NULLIF(btrim(staging.legal_dong_code), ''),
                 sido = btrim(staging.sido),
                 sigungu = NULLIF(btrim(staging.sigungu), ''),
                 b_dong_name = NULLIF(btrim(staging.b_dong_name), ''),
@@ -301,7 +320,11 @@ public class RoadAddressApplyRepository {
                 build_main = btrim(staging.build_main)::integer,
                 build_sub = btrim(staging.build_sub)::integer,
                 zip_code = btrim(staging.zip_code),
-                apartment = btrim(staging.apartment_flag) = '1',
+                apartment_status = CASE btrim(staging.apartment_flag)
+                    WHEN '1' THEN 'APARTMENT'
+                    WHEN '0' THEN 'NON_APARTMENT'
+                    ELSE 'UNKNOWN'
+                END,
                 build_name_official = NULLIF(btrim(staging.build_nm_official), ''),
                 build_name_sigungu = NULLIF(btrim(staging.build_nm_sgg), ''),
                 status = 'ACTIVE',
@@ -324,7 +347,8 @@ public class RoadAddressApplyRepository {
 
     private static final String UPDATE_DELTA_ADDRESSES = """
             UPDATE address.road_address current_address
-            SET legal_dong_code = btrim(staging.legal_dong_code),
+            SET legal_area_code = btrim(staging.legal_area_code),
+                legal_dong_code = NULLIF(btrim(staging.legal_dong_code), ''),
                 sido = btrim(staging.sido),
                 sigungu = NULLIF(btrim(staging.sigungu), ''),
                 b_dong_name = NULLIF(btrim(staging.b_dong_name), ''),
@@ -334,7 +358,11 @@ public class RoadAddressApplyRepository {
                 build_main = btrim(staging.build_main)::integer,
                 build_sub = btrim(staging.build_sub)::integer,
                 zip_code = btrim(staging.zip_code),
-                apartment = btrim(staging.apartment_flag) = '1',
+                apartment_status = CASE btrim(staging.apartment_flag)
+                    WHEN '1' THEN 'APARTMENT'
+                    WHEN '0' THEN 'NON_APARTMENT'
+                    ELSE 'UNKNOWN'
+                END,
                 build_name_official = NULLIF(btrim(staging.build_nm_official), ''),
                 build_name_sigungu = NULLIF(btrim(staging.build_nm_sgg), ''),
                 effective_date = to_date(btrim(staging.effective_date), 'YYYYMMDD'),

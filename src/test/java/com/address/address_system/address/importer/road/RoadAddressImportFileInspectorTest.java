@@ -12,23 +12,25 @@ import org.junit.jupiter.api.io.TempDir;
 
 class RoadAddressImportFileInspectorTest {
 
-    private final RoadAddressImportFileInspector inspector = new RoadAddressImportFileInspector();
+    private final RoadAddressImportFileInspector inspector =
+            new RoadAddressImportFileInspector(new RoadAddressCsvHeaderValidator());
 
     @TempDir
     Path tempDirectory;
 
     @Test
-    void calculatesFileMetadataAndSha256() throws Exception {
+    void calculatesFileMetadataAndDetectsSchema() throws Exception {
         Path file = tempDirectory.resolve("도로명.csv");
-        Files.writeString(file, "abc", StandardCharsets.UTF_8);
+        String contents = String.join(",", RoadAddressCsvFormat.SNAPSHOT_HEADER) + "\r\n";
+        Files.writeString(file, contents, StandardCharsets.UTF_8);
 
         RoadAddressImportFile inspected = inspector.inspect(file);
 
         assertThat(inspected.path()).isEqualTo(file.toAbsolutePath().normalize());
         assertThat(inspected.fileName()).isEqualTo("도로명.csv");
-        assertThat(inspected.fileSizeBytes()).isEqualTo(3);
-        assertThat(inspected.sha256())
-                .isEqualTo("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+        assertThat(inspected.fileSizeBytes()).isEqualTo(contents.getBytes(StandardCharsets.UTF_8).length);
+        assertThat(inspected.sha256()).matches("[0-9a-f]{64}");
+        assertThat(inspected.schema()).isEqualTo(RoadAddressCsvFormat.Schema.SNAPSHOT);
     }
 
     @Test
@@ -57,6 +59,18 @@ class RoadAddressImportFileInspectorTest {
                 .isInstanceOfSatisfying(RoadAddressImportException.class, exception ->
                         assertThat(exception.getFailureCode())
                                 .isEqualTo(RoadAddressImportFailureCode.FILE_NOT_CONFIGURED)
+                );
+    }
+
+    @Test
+    void rejectsUnsupportedHeader() throws Exception {
+        Path file = tempDirectory.resolve("unsupported.csv");
+        Files.writeString(file, "a,b,c\r\n", StandardCharsets.UTF_8);
+
+        assertThatThrownBy(() -> inspector.inspect(file))
+                .isInstanceOfSatisfying(RoadAddressImportException.class, exception ->
+                        assertThat(exception.getFailureCode())
+                                .isEqualTo(RoadAddressImportFailureCode.INVALID_HEADER)
                 );
     }
 }

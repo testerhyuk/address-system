@@ -31,8 +31,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class RoadAddressImportJobConfiguration {
 
     @Bean
-    RoadAddressImportFileInspector roadAddressImportFileInspector() {
-        return new RoadAddressImportFileInspector();
+    RoadAddressImportFileInspector roadAddressImportFileInspector(
+            RoadAddressCsvHeaderValidator headerValidator
+    ) {
+        return new RoadAddressImportFileInspector(headerValidator);
     }
 
     @Bean
@@ -64,8 +66,10 @@ public class RoadAddressImportJobConfiguration {
     FlatFileItemReader<RoadAddressImportRecord> roadAddressCsvReader(
             @Value("#{jobParameters['filePath']}") String filePath,
             @Value("#{jobParameters['batchId']}") String batchId,
+            @Value("#{jobParameters['csvSchema']}") String csvSchema,
             RoadAddressCsvHeaderValidator headerValidator
     ) {
+        RoadAddressCsvFormat.Schema schema = RoadAddressCsvFormat.Schema.valueOf(csvSchema);
         return new FlatFileItemReaderBuilder<RoadAddressImportRecord>()
                 .name("roadAddressCsvReader")
                 .resource(new FileSystemResource(filePath))
@@ -73,8 +77,8 @@ public class RoadAddressImportJobConfiguration {
                 .strict(true)
                 .saveState(true)
                 .linesToSkip(1)
-                .skippedLinesCallback(headerValidator::validate)
-                .lineMapper(new RoadAddressCsvLineMapper(UUID.fromString(batchId)))
+                .skippedLinesCallback(line -> headerValidator.validate(line, schema))
+                .lineMapper(new RoadAddressCsvLineMapper(UUID.fromString(batchId), schema))
                 .build();
     }
 
@@ -89,6 +93,7 @@ public class RoadAddressImportJobConfiguration {
                 .<RoadAddressImportRecord, RoadAddressImportRecord>chunk(properties.getChunkSize())
                 .reader(roadAddressCsvReader)
                 .writer(roadAddressImportWriter)
+                .allowStartIfComplete(true)
                 .build();
     }
 

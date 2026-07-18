@@ -6,6 +6,7 @@ public record RoadAddressImportFile(
         Path path,
         String fileName,
         long fileSizeBytes,
-        String sha256
+        String sha256,
+        RoadAddressCsvFormat.Schema schema
 ) {
 }

@@ -7,31 +7,44 @@ import org.junit.jupiter.api.Test;
 
 class RoadAddressCsvHeaderValidatorTest {
 
-    private static final String EXPECTED_HEADER = String.join(",", RoadAddressCsvFormat.EXPECTED_HEADER);
+    private static final String SNAPSHOT_HEADER =
+            String.join(",", RoadAddressCsvFormat.SNAPSHOT_HEADER);
+    private static final String CHANGE_HEADER =
+            String.join(",", RoadAddressCsvFormat.CHANGE_HEADER);
 
     private final RoadAddressCsvHeaderValidator validator = new RoadAddressCsvHeaderValidator();
 
     @Test
-    void acceptsExpectedHeader() {
-        validator.validate(EXPECTED_HEADER);
+    void detectsSnapshotHeader() {
+        assertThat(validator.detect(SNAPSHOT_HEADER))
+                .isEqualTo(RoadAddressCsvFormat.Schema.SNAPSHOT);
     }
 
     @Test
-    void acceptsUtf8BomHeader() {
-        validator.validate("\uFEFF" + EXPECTED_HEADER);
+    void detectsChangeHeaderWithUtf8Bom() {
+        assertThat(validator.detect("\uFEFF" + CHANGE_HEADER))
+                .isEqualTo(RoadAddressCsvFormat.Schema.CHANGE);
     }
 
     @Test
     void rejectsChangedColumnOrder() {
-        String changedHeader = EXPECTED_HEADER.replace(
-                "mgmt_num,legal_dong_code",
-                "legal_dong_code,mgmt_num"
+        String changedHeader = SNAPSHOT_HEADER.replace(
+                "mgmt_num,sido",
+                "sido,mgmt_num"
         );
 
-        assertThatThrownBy(() -> validator.validate(changedHeader))
+        assertThatThrownBy(() -> validator.detect(changedHeader))
                 .isInstanceOfSatisfying(RoadAddressImportException.class, exception ->
                         assertThat(exception.getFailureCode())
                                 .isEqualTo(RoadAddressImportFailureCode.INVALID_HEADER)
                 );
+    }
+
+    @Test
+    void rejectsSchemaChangedAfterInspection() {
+        assertThatThrownBy(() -> validator.validate(
+                CHANGE_HEADER,
+                RoadAddressCsvFormat.Schema.SNAPSHOT
+        )).isInstanceOf(RoadAddressImportException.class);
     }
 }

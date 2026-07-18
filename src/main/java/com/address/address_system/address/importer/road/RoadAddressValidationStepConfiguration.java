@@ -56,6 +56,7 @@ public class RoadAddressValidationStepConfiguration {
                             batch_id,
                             source_row_number,
                             mgmt_num,
+                            legal_area_code,
                             legal_dong_code,
                             sido,
                             sigungu,
@@ -83,6 +84,7 @@ public class RoadAddressValidationStepConfiguration {
                         resultSet.getObject("batch_id", UUID.class),
                         resultSet.getLong("source_row_number"),
                         resultSet.getString("mgmt_num"),
+                        resultSet.getString("legal_area_code"),
                         resultSet.getString("legal_dong_code"),
                         resultSet.getString("sido"),
                         resultSet.getString("sigungu"),
@@ -130,6 +132,7 @@ public class RoadAddressValidationStepConfiguration {
                 .reader(roadAddressStagingValidationReader)
                 .processor(roadAddressContentValidator)
                 .writer(roadAddressValidationWriter)
+                .allowStartIfComplete(true)
                 .build();
     }
 
@@ -144,6 +147,7 @@ public class RoadAddressValidationStepConfiguration {
                     validationWriter.rejectDuplicateAddressKeys(batchIdOf(contribution));
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
+                .allowStartIfComplete(true)
                 .build();
     }
 
