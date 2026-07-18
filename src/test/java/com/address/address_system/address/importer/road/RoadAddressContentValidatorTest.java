@@ -8,7 +8,8 @@ import org.junit.jupiter.api.Test;
 
 class RoadAddressContentValidatorTest {
 
-    private final RoadAddressContentValidator validator = new RoadAddressContentValidator();
+    private final RoadAddressContentValidator validator =
+            new RoadAddressContentValidator(RoadAddressImportMode.DELTA);
 
     @Test
     void acceptsValidRoadAddress() throws Exception {
@@ -135,6 +136,35 @@ class RoadAddressContentValidatorTest {
             assertThat(violation.fieldName()).isEqualTo("road_name");
             assertThat(violation.reasonCode())
                     .isEqualTo(RoadAddressContentValidator.FIELD_LENGTH_EXCEEDED);
+        });
+    }
+
+    @Test
+    void fullImportAllowsBlankEffectiveDateAndMovementReason() throws Exception {
+        RoadAddressContentValidator fullValidator =
+                new RoadAddressContentValidator(RoadAddressImportMode.FULL);
+        RoadAddressStagingRow row = validRow()
+                .effectiveDate(" ")
+                .movementReasonCode(null)
+                .build();
+
+        RoadAddressValidationResult result = fullValidator.process(row);
+
+        assertThat(result.isValid()).isTrue();
+    }
+
+    @Test
+    void fullImportRejectsDeltaOnlyMovementReason() throws Exception {
+        RoadAddressContentValidator fullValidator =
+                new RoadAddressContentValidator(RoadAddressImportMode.FULL);
+        RoadAddressStagingRow row = validRow().movementReasonCode("34").build();
+
+        RoadAddressValidationResult result = fullValidator.process(row);
+
+        assertThat(result.violations()).singleElement().satisfies(violation -> {
+            assertThat(violation.fieldName()).isEqualTo("movement_reason_code");
+            assertThat(violation.reasonCode())
+                    .isEqualTo(RoadAddressContentValidator.INVALID_CODE_VALUE);
         });
     }
 

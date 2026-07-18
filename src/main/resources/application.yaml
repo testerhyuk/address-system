@@ -28,6 +28,8 @@ address:
     road:
       enabled: ${ROAD_ADDRESS_IMPORT_ENABLED:false}
       file: ${ROAD_ADDRESS_IMPORT_FILE:}
+      mode: ${ROAD_ADDRESS_IMPORT_MODE:}
+      reference-date: ${ROAD_ADDRESS_IMPORT_REFERENCE_DATE:}
       chunk-size: ${ROAD_ADDRESS_IMPORT_CHUNK_SIZE:2000}
       max-skipped-rows: ${ROAD_ADDRESS_IMPORT_MAX_SKIPPED_ROWS:1000}
 

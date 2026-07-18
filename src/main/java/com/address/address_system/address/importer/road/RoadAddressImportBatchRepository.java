@@ -1,5 +1,6 @@
 package com.address.address_system.address.importer.road;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,25 +21,35 @@ public class RoadAddressImportBatchRepository {
         this.transactionTemplate = transactionTemplate;
     }
 
-    public RegisteredBatch registerOrResume(RoadAddressImportFile file) {
+    public RegisteredBatch registerOrResume(
+            RoadAddressImportFile file,
+            RoadAddressImportMode importMode,
+            LocalDate referenceDate
+    ) {
         try {
             return transactionTemplate.execute(status -> {
                 List<RegisteredBatch> existing = jdbcTemplate.query(
                         """
-                        SELECT batch_id, status
+                        SELECT batch_id, status, import_mode, source_reference_date
                         FROM address.address_import_batch
                         WHERE source_type = 'ROAD'
                           AND source_file_sha256 = ?
                         """,
                         (resultSet, rowNumber) -> new RegisteredBatch(
                                 resultSet.getObject("batch_id", UUID.class),
-                                resultSet.getString("status")
+                                resultSet.getString("status"),
+                                RoadAddressImportMode.valueOf(resultSet.getString("import_mode")),
+                                resultSet.getObject("source_reference_date", LocalDate.class)
                         ),
                         file.sha256()
                 );
 
                 if (!existing.isEmpty()) {
                     RegisteredBatch batch = existing.get(0);
+                    if (batch.importMode() != importMode
+                            || !batch.referenceDate().equals(referenceDate)) {
+                        throw duplicateSourceFile();
+                    }
                     if ("FAILED".equals(batch.status()) || "REGISTERED".equals(batch.status())) {
                         return batch;
                     }
@@ -53,16 +64,20 @@ public class RoadAddressImportBatchRepository {
                             source_type,
                             source_file_name,
                             source_file_sha256,
+                            source_reference_date,
                             file_size_bytes,
+                            import_mode,
                             status
-                        ) VALUES (?, 'ROAD', ?, ?, ?, 'REGISTERED')
+                        ) VALUES (?, 'ROAD', ?, ?, ?, ?, ?, 'REGISTERED')
                         """,
                         batchId,
                         file.fileName(),
                         file.sha256(),
-                        file.fileSizeBytes()
+                        referenceDate,
+                        file.fileSizeBytes(),
+                        importMode.name()
                 );
-                return new RegisteredBatch(batchId, "REGISTERED");
+                return new RegisteredBatch(batchId, "REGISTERED", importMode, referenceDate);
             });
         }
         catch (DuplicateKeyException exception) {
@@ -140,7 +155,7 @@ public class RoadAddressImportBatchRepository {
         return counts;
     }
 
-    public ImportCounts markCompleted(UUID batchId, int maxSkippedRows) {
+    public ImportCounts markReadyForApply(UUID batchId, int maxSkippedRows) {
         ValidationCounts counts = jdbcTemplate.queryForObject(
                 """
                 SELECT
@@ -248,11 +263,11 @@ public class RoadAddressImportBatchRepository {
         int updated = jdbcTemplate.update(
                 """
                 UPDATE address.address_import_batch
-                SET status = 'COMPLETED',
+                SET status = 'APPLYING',
                     total_row_count = ?,
                     accepted_row_count = ?,
                     rejected_row_count = ?,
-                    completed_at = CURRENT_TIMESTAMP,
+                    completed_at = NULL,
                     failure_reason_code = NULL,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE batch_id = ?
@@ -265,7 +280,7 @@ public class RoadAddressImportBatchRepository {
         );
         if (updated != 1) {
             throw validationIncomplete(
-                    "적재 배치를 COMPLETED 상태로 변경하지 못했습니다. batchId=" + batchId
+                    "적재 배치를 APPLYING 상태로 변경하지 못했습니다. batchId=" + batchId
             );
         }
         return importCounts;
@@ -317,7 +332,12 @@ public class RoadAddressImportBatchRepository {
         );
     }
 
-    public record RegisteredBatch(UUID batchId, String status) {
+    public record RegisteredBatch(
+            UUID batchId,
+            String status,
+            RoadAddressImportMode importMode,
+            LocalDate referenceDate
+    ) {
     }
 
     public record LoadCounts(long stagingCount, long parserRejectedCount) {

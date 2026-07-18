@@ -1,9 +1,11 @@
 package com.address.address_system.address.importer.road;
 
 import java.nio.file.Path;
+import java.time.LocalDate;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
@@ -15,6 +17,12 @@ public class RoadAddressImportProperties {
     private boolean enabled;
 
     private Path file;
+
+    @NotNull
+    private RoadAddressImportMode mode;
+
+    @NotNull
+    private LocalDate referenceDate;
 
     @Min(1)
     @Max(10_000)
@@ -38,6 +46,22 @@ public class RoadAddressImportProperties {
 
     public void setFile(Path file) {
         this.file = file;
+    }
+
+    public RoadAddressImportMode getMode() {
+        return mode;
+    }
+
+    public void setMode(RoadAddressImportMode mode) {
+        this.mode = mode;
+    }
+
+    public LocalDate getReferenceDate() {
+        return referenceDate;
+    }
+
+    public void setReferenceDate(LocalDate referenceDate) {
+        this.referenceDate = referenceDate;
     }
 
     public int getChunkSize() {

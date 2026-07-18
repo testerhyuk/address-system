@@ -41,13 +41,20 @@ public class RoadAddressImportRunner implements ApplicationRunner {
     public void run(ApplicationArguments arguments) throws Exception {
         RoadAddressImportFile file = fileInspector.inspect(properties.getFile());
         RoadAddressImportBatchRepository.RegisteredBatch batch =
-                batchRepository.registerOrResume(file);
+                batchRepository.registerOrResume(
+                        file,
+                        properties.getMode(),
+                        properties.getReferenceDate()
+                );
         UUID batchId = batch.batchId();
 
         batchRepository.markLoading(batchId);
         log.info(
-                "도로명주소 적재와 검증을 시작합니다. batchId={}, fileName={}, fileSizeBytes={}",
+                "도로명주소 적재·검증·운영 반영을 시작합니다. "
+                        + "batchId={}, importMode={}, referenceDate={}, fileName={}, fileSizeBytes={}",
                 batchId,
+                properties.getMode(),
+                properties.getReferenceDate(),
                 file.fileName(),
                 file.fileSizeBytes()
         );
@@ -60,14 +67,16 @@ public class RoadAddressImportRunner implements ApplicationRunner {
             if (execution.getStatus() != BatchStatus.COMPLETED) {
                 throw new RoadAddressImportException(
                         failureCodeOfExecution(execution),
-                        "도로명주소 적재와 검증 작업이 완료되지 않았습니다: " + execution.getStatus()
+                        "도로명주소 적재·검증·운영 반영 작업이 완료되지 않았습니다: "
+                                + execution.getStatus()
                 );
             }
 
             RoadAddressImportBatchRepository.ImportCounts counts =
                     batchRepository.getCompletedCounts(batchId);
             log.info(
-                    "도로명주소 적재와 검증을 완료했습니다. batchId={}, totalRows={}, acceptedRows={}, rejectedRows={}",
+                    "도로명주소 적재·검증·운영 반영을 완료했습니다. "
+                            + "batchId={}, totalRows={}, acceptedRows={}, rejectedRows={}",
                     batchId,
                     counts.totalCount(),
                     counts.acceptedCount(),
@@ -84,6 +93,8 @@ public class RoadAddressImportRunner implements ApplicationRunner {
     private JobParameters createJobParameters(RoadAddressImportFile file, UUID batchId) {
         return new JobParametersBuilder()
                 .addString("fileSha256", file.sha256(), true)
+                .addString("importMode", properties.getMode().name(), true)
+                .addString("referenceDate", properties.getReferenceDate().toString(), true)
                 .addString("filePath", file.path().toString(), false)
                 .addString("batchId", batchId.toString(), false)
                 .toJobParameters();

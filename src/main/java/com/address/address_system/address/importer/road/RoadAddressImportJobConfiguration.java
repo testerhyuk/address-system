@@ -100,15 +100,18 @@ public class RoadAddressImportJobConfiguration {
             Step roadAddressValidationPreparationStep,
             @Qualifier("roadAddressContentValidationStep") Step roadAddressContentValidationStep,
             @Qualifier("roadAddressDuplicateValidationStep") Step roadAddressDuplicateValidationStep,
-            @Qualifier("roadAddressValidationFinalizationStep")
-            Step roadAddressValidationFinalizationStep
+            @Qualifier("roadAddressApplyValidationStep") Step roadAddressApplyValidationStep,
+            @Qualifier("roadAddressApplyPreparationStep") Step roadAddressApplyPreparationStep,
+            @Qualifier("roadAddressApplyStep") Step roadAddressApplyStep
     ) {
         return new JobBuilder("roadAddressImportJob", jobRepository)
                 .start(roadAddressImportStep)
                 .next(roadAddressValidationPreparationStep)
                 .next(roadAddressContentValidationStep)
                 .next(roadAddressDuplicateValidationStep)
-                .next(roadAddressValidationFinalizationStep)
+                .next(roadAddressApplyValidationStep)
+                .next(roadAddressApplyPreparationStep)
+                .next(roadAddressApplyStep)
                 .build();
     }
 

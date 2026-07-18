@@ -128,6 +128,7 @@ class RoadAddressValidationWriterTest {
         writer.rejectDuplicateAddressKeys(batchId);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).update(anyString(), eq(batchId), eq(batchId));
         verify(jdbcTemplate, times(2)).update(sqlCaptor.capture(), eq(batchId));
         assertThat(sqlCaptor.getAllValues()).hasSize(2);
         assertThat(sqlCaptor.getAllValues().get(0)).contains("INSERT INTO");

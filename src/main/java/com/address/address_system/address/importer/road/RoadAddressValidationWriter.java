@@ -39,6 +39,39 @@ public class RoadAddressValidationWriter implements ItemWriter<RoadAddressValida
               AND processing_status = 'LOADED'
             """;
 
+    private static final String INSERT_DUPLICATE_MANAGEMENT_NUMBER_REJECTION_SQL = """
+            WITH duplicate_management_numbers AS (
+                SELECT btrim(mgmt_num) AS mgmt_num
+                FROM address.address_road_staging
+                WHERE batch_id = ?
+                  AND processing_status = 'VALID'
+                GROUP BY btrim(mgmt_num)
+                HAVING count(*) > 1
+            )
+            INSERT INTO address.address_import_rejection (
+                batch_id,
+                source_row_number,
+                reason_code,
+                field_name,
+                rejected_value,
+                reason_detail
+            )
+            SELECT
+                staging.batch_id,
+                staging.source_row_number,
+                'DUPLICATE_MANAGEMENT_NUMBER',
+                'mgmt_num',
+                btrim(staging.mgmt_num),
+                '동일 배치에 같은 도로명주소관리번호가 중복되었습니다'
+            FROM address.address_road_staging staging
+            INNER JOIN duplicate_management_numbers duplicate
+                ON duplicate.mgmt_num = btrim(staging.mgmt_num)
+            WHERE staging.batch_id = ?
+              AND staging.processing_status = 'VALID'
+            ON CONFLICT (batch_id, source_row_number, reason_code, field_name)
+                DO NOTHING
+            """;
+
     private static final String INSERT_DUPLICATE_REJECTION_SQL = """
             WITH normalized_rows AS (
                 SELECT
@@ -109,8 +142,10 @@ public class RoadAddressValidationWriter implements ItemWriter<RoadAddressValida
                   FROM address.address_import_rejection rejection
                   WHERE rejection.batch_id = staging.batch_id
                     AND rejection.source_row_number = staging.source_row_number
-                    AND rejection.reason_code = 'DUPLICATE_ADDRESS_KEY'
-                    AND rejection.field_name IS NULL
+                    AND rejection.reason_code IN (
+                        'DUPLICATE_MANAGEMENT_NUMBER',
+                        'DUPLICATE_ADDRESS_KEY'
+                    )
               )
             """;
 
@@ -167,6 +202,11 @@ public class RoadAddressValidationWriter implements ItemWriter<RoadAddressValida
     }
 
     public void rejectDuplicateAddressKeys(UUID batchId) {
+        jdbcTemplate.update(
+                INSERT_DUPLICATE_MANAGEMENT_NUMBER_REJECTION_SQL,
+                batchId,
+                batchId
+        );
         jdbcTemplate.update(INSERT_DUPLICATE_REJECTION_SQL, batchId);
         jdbcTemplate.update(REJECT_DUPLICATE_STAGING_ROWS_SQL, batchId);
     }
