@@ -11,6 +11,7 @@ import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.infrastructure.item.file.FlatFileItemReader;
 import org.springframework.batch.infrastructure.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -94,10 +95,20 @@ public class RoadAddressImportJobConfiguration {
     @Bean
     Job roadAddressImportJob(
             JobRepository jobRepository,
-            Step roadAddressImportStep
+            @Qualifier("roadAddressImportStep") Step roadAddressImportStep,
+            @Qualifier("roadAddressValidationPreparationStep")
+            Step roadAddressValidationPreparationStep,
+            @Qualifier("roadAddressContentValidationStep") Step roadAddressContentValidationStep,
+            @Qualifier("roadAddressDuplicateValidationStep") Step roadAddressDuplicateValidationStep,
+            @Qualifier("roadAddressValidationFinalizationStep")
+            Step roadAddressValidationFinalizationStep
     ) {
         return new JobBuilder("roadAddressImportJob", jobRepository)
                 .start(roadAddressImportStep)
+                .next(roadAddressValidationPreparationStep)
+                .next(roadAddressContentValidationStep)
+                .next(roadAddressDuplicateValidationStep)
+                .next(roadAddressValidationFinalizationStep)
                 .build();
     }
 

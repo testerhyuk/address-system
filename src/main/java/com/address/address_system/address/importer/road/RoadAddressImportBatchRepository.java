@@ -89,16 +89,26 @@ public class RoadAddressImportBatchRepository {
         }
     }
 
-    public ImportCounts markReadyForValidation(UUID batchId) {
-        ImportCounts counts = jdbcTemplate.queryForObject(
+    public LoadCounts markReadyForValidation(UUID batchId) {
+        LoadCounts counts = jdbcTemplate.queryForObject(
                 """
                 SELECT
                     (SELECT count(*) FROM address.address_road_staging WHERE batch_id = ?) AS staging_count,
-                    (SELECT count(*) FROM address.address_import_rejection WHERE batch_id = ?) AS rejection_count
+                    (
+                        SELECT count(DISTINCT rejection.source_row_number)
+                        FROM address.address_import_rejection rejection
+                        WHERE rejection.batch_id = ?
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM address.address_road_staging staging
+                              WHERE staging.batch_id = rejection.batch_id
+                                AND staging.source_row_number = rejection.source_row_number
+                          )
+                    ) AS parser_rejection_count
                 """,
-                (resultSet, rowNumber) -> new ImportCounts(
+                (resultSet, rowNumber) -> new LoadCounts(
                         resultSet.getLong("staging_count"),
-                        resultSet.getLong("rejection_count")
+                        resultSet.getLong("parser_rejection_count")
                 ),
                 batchId,
                 batchId
@@ -121,13 +131,175 @@ public class RoadAddressImportBatchRepository {
                   AND status = 'LOADING'
                 """,
                 counts.totalCount(),
-                counts.rejectedCount(),
+                counts.parserRejectedCount(),
                 batchId
         );
         if (updated != 1) {
             throw new IllegalStateException("적재 배치를 VALIDATING 상태로 변경하지 못했습니다: " + batchId);
         }
         return counts;
+    }
+
+    public ImportCounts markCompleted(UUID batchId, int maxSkippedRows) {
+        ValidationCounts counts = jdbcTemplate.queryForObject(
+                """
+                SELECT
+                    (SELECT count(*)
+                     FROM address.address_road_staging
+                     WHERE batch_id = ?) AS staging_count,
+                    (SELECT count(*)
+                     FROM address.address_road_staging
+                     WHERE batch_id = ?
+                       AND processing_status = 'VALID') AS accepted_count,
+                    (SELECT count(*)
+                     FROM address.address_road_staging
+                     WHERE batch_id = ?
+                       AND processing_status = 'LOADED') AS pending_count,
+                    (
+                        SELECT count(*)
+                        FROM address.address_road_staging staging
+                        WHERE staging.batch_id = ?
+                          AND (
+                              (
+                                  staging.processing_status = 'REJECTED'
+                                  AND NOT EXISTS (
+                                      SELECT 1
+                                      FROM address.address_import_rejection rejection
+                                      WHERE rejection.batch_id = staging.batch_id
+                                        AND rejection.source_row_number = staging.source_row_number
+                                  )
+                              )
+                              OR (
+                                  staging.processing_status = 'VALID'
+                                  AND EXISTS (
+                                      SELECT 1
+                                      FROM address.address_import_rejection rejection
+                                      WHERE rejection.batch_id = staging.batch_id
+                                        AND rejection.source_row_number = staging.source_row_number
+                                  )
+                              )
+                          )
+                    ) AS inconsistent_count,
+                    (
+                        SELECT count(DISTINCT rejection.source_row_number)
+                        FROM address.address_import_rejection rejection
+                        WHERE rejection.batch_id = ?
+                    ) AS rejected_count,
+                    (
+                        SELECT count(DISTINCT rejection.source_row_number)
+                        FROM address.address_import_rejection rejection
+                        WHERE rejection.batch_id = ?
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM address.address_road_staging staging
+                              WHERE staging.batch_id = rejection.batch_id
+                                AND staging.source_row_number = rejection.source_row_number
+                          )
+                    ) AS parser_rejection_count
+                """,
+                (resultSet, rowNumber) -> new ValidationCounts(
+                        resultSet.getLong("staging_count"),
+                        resultSet.getLong("accepted_count"),
+                        resultSet.getLong("pending_count"),
+                        resultSet.getLong("inconsistent_count"),
+                        resultSet.getLong("rejected_count"),
+                        resultSet.getLong("parser_rejection_count")
+                ),
+                batchId,
+                batchId,
+                batchId,
+                batchId,
+                batchId,
+                batchId
+        );
+        if (counts == null) {
+            throw validationIncomplete("검증 완료 건수를 조회하지 못했습니다. batchId=" + batchId);
+        }
+
+        ImportCounts importCounts = new ImportCounts(
+                counts.totalCount(),
+                counts.acceptedCount(),
+                counts.rejectedCount()
+        );
+        if (counts.pendingCount() != 0) {
+            throw validationIncomplete(
+                    "검증되지 않은 LOADED 행이 " + counts.pendingCount() + "건 남아 있습니다. batchId=" + batchId
+            );
+        }
+        if (counts.inconsistentCount() != 0) {
+            throw validationIncomplete(
+                    "검증 상태와 검역 사유가 일치하지 않는 행이 "
+                            + counts.inconsistentCount() + "건입니다. batchId=" + batchId
+            );
+        }
+        if (importCounts.acceptedCount() + importCounts.rejectedCount()
+                != importCounts.totalCount()) {
+            throw validationIncomplete(
+                    "전체·정상·거부 행 집계가 일치하지 않습니다. batchId=" + batchId
+            );
+        }
+        if (importCounts.rejectedCount() > maxSkippedRows) {
+            throw new RoadAddressImportException(
+                    RoadAddressImportFailureCode.SKIP_LIMIT_EXCEEDED,
+                    "검역 대상 행이 허용 한도 " + maxSkippedRows + "건을 초과했습니다"
+            );
+        }
+
+        int updated = jdbcTemplate.update(
+                """
+                UPDATE address.address_import_batch
+                SET status = 'COMPLETED',
+                    total_row_count = ?,
+                    accepted_row_count = ?,
+                    rejected_row_count = ?,
+                    completed_at = CURRENT_TIMESTAMP,
+                    failure_reason_code = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE batch_id = ?
+                  AND status = 'VALIDATING'
+                """,
+                importCounts.totalCount(),
+                importCounts.acceptedCount(),
+                importCounts.rejectedCount(),
+                batchId
+        );
+        if (updated != 1) {
+            throw validationIncomplete(
+                    "적재 배치를 COMPLETED 상태로 변경하지 못했습니다. batchId=" + batchId
+            );
+        }
+        return importCounts;
+    }
+
+    public ImportCounts getCompletedCounts(UUID batchId) {
+        CompletedBatch batch = jdbcTemplate.queryForObject(
+                """
+                SELECT status, total_row_count, accepted_row_count, rejected_row_count
+                FROM address.address_import_batch
+                WHERE batch_id = ?
+                """,
+                (resultSet, rowNumber) -> new CompletedBatch(
+                        resultSet.getString("status"),
+                        resultSet.getObject("total_row_count", Long.class),
+                        resultSet.getObject("accepted_row_count", Long.class),
+                        resultSet.getObject("rejected_row_count", Long.class)
+                ),
+                batchId
+        );
+        if (batch == null
+                || !"COMPLETED".equals(batch.status())
+                || batch.totalCount() == null
+                || batch.acceptedCount() == null
+                || batch.rejectedCount() == null) {
+            throw validationIncomplete(
+                    "완료된 적재 배치의 최종 건수를 조회하지 못했습니다. batchId=" + batchId
+            );
+        }
+        return new ImportCounts(
+                batch.totalCount(),
+                batch.acceptedCount(),
+                batch.rejectedCount()
+        );
     }
 
     public void markFailed(UUID batchId, RoadAddressImportFailureCode failureCode) {
@@ -148,10 +320,42 @@ public class RoadAddressImportBatchRepository {
     public record RegisteredBatch(UUID batchId, String status) {
     }
 
-    public record ImportCounts(long stagingCount, long rejectedCount) {
+    public record LoadCounts(long stagingCount, long parserRejectedCount) {
         public long totalCount() {
-            return stagingCount + rejectedCount;
+            return stagingCount + parserRejectedCount;
         }
+    }
+
+    public record ImportCounts(long totalCount, long acceptedCount, long rejectedCount) {
+    }
+
+    private record ValidationCounts(
+            long stagingCount,
+            long acceptedCount,
+            long pendingCount,
+            long inconsistentCount,
+            long rejectedCount,
+            long parserRejectedCount
+    ) {
+
+        private long totalCount() {
+            return stagingCount + parserRejectedCount;
+        }
+    }
+
+    private record CompletedBatch(
+            String status,
+            Long totalCount,
+            Long acceptedCount,
+            Long rejectedCount
+    ) {
+    }
+
+    private RoadAddressImportException validationIncomplete(String message) {
+        return new RoadAddressImportException(
+                RoadAddressImportFailureCode.VALIDATION_INCOMPLETE,
+                message
+        );
     }
 
     private RoadAddressImportException duplicateSourceFile() {
