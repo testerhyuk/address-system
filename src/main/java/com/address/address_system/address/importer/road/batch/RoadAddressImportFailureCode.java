@@ -1,0 +1,16 @@
+package com.address.address_system.address.importer.road.batch;
+
+public enum RoadAddressImportFailureCode {
+    FILE_NOT_CONFIGURED,
+    FILE_NOT_READABLE,
+    INVALID_FILE_NAME,
+    INVALID_HEADER,
+    UNSUPPORTED_SOURCE_MODE,
+    DUPLICATE_SOURCE_FILE,
+    SKIP_LIMIT_EXCEEDED,
+    VALIDATION_INCOMPLETE,
+    VALIDATION_STATE_CONFLICT,
+    APPLY_PRECONDITION_FAILED,
+    APPLY_INCOMPLETE,
+    IMPORT_JOB_FAILED
+}

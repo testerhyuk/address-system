@@ -5,6 +5,8 @@ spring:
     default: local
   jackson:
     time-zone: UTC
+    deserialization:
+      fail-on-unknown-properties: true
   lifecycle:
     timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT:30s}
   flyway:
@@ -24,6 +26,23 @@ spring:
       initialize-schema: never
 
 address:
+  api-security:
+    enabled: ${ADDRESS_API_SECURITY_ENABLED:true}
+    allowed-clock-skew: ${ADDRESS_API_ALLOWED_CLOCK_SKEW:5m}
+    replay-retention: ${ADDRESS_API_REPLAY_RETENTION:15m}
+    replay-cleanup-interval: ${ADDRESS_API_REPLAY_CLEANUP_INTERVAL:10m}
+    max-request-body-bytes: ${ADDRESS_API_MAX_REQUEST_BODY_BYTES:65536}
+    rate-limit:
+      enabled: ${ADDRESS_API_RATE_LIMIT_ENABLED:true}
+      stale-bucket-retention: ${ADDRESS_API_RATE_LIMIT_STALE_RETENTION:24h}
+      cleanup-interval: ${ADDRESS_API_RATE_LIMIT_CLEANUP_INTERVAL:1h}
+  coordinate:
+    nominatim:
+      base-url: ${NOMINATIM_BASE_URL:http://localhost:8081}
+      connect-timeout: ${NOMINATIM_CONNECT_TIMEOUT:3s}
+      read-timeout: ${NOMINATIM_READ_TIMEOUT:10s}
+      retry-delay: ${NOMINATIM_RETRY_DELAY:5m}
+      max-results: ${NOMINATIM_MAX_RESULTS:10}
   import:
     road:
       enabled: ${ROAD_ADDRESS_IMPORT_ENABLED:false}
@@ -32,6 +51,12 @@ address:
       reference-date: ${ROAD_ADDRESS_IMPORT_REFERENCE_DATE:}
       chunk-size: ${ROAD_ADDRESS_IMPORT_CHUNK_SIZE:2000}
       max-skipped-rows: ${ROAD_ADDRESS_IMPORT_MAX_SKIPPED_ROWS:1000}
+    jibun:
+      enabled: ${JIBUN_ADDRESS_IMPORT_ENABLED:false}
+      file: ${JIBUN_ADDRESS_IMPORT_FILE:}
+      reference-date: ${JIBUN_ADDRESS_IMPORT_REFERENCE_DATE:}
+      chunk-size: ${JIBUN_ADDRESS_IMPORT_CHUNK_SIZE:2000}
+      max-skipped-rows: ${JIBUN_ADDRESS_IMPORT_MAX_SKIPPED_ROWS:1000}
 
 server:
   port: ${SERVER_PORT:8080}

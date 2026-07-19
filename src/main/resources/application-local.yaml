@@ -13,6 +13,21 @@ spring:
       connection-timeout: ${DB_CONNECTION_TIMEOUT:5000}
       connection-init-sql: SET search_path TO address, public
 
+address:
+  api-security:
+    client-id: ${ADDRESS_API_CLIENT_ID:local-delivery-system}
+    client-secret: ${ADDRESS_API_CLIENT_SECRET:local-development-hmac-secret-change-me}
+    rate-limit:
+      address-search:
+        capacity: ${ADDRESS_API_RATE_LIMIT_SEARCH_CAPACITY:1000}
+        refill-tokens-per-second: ${ADDRESS_API_RATE_LIMIT_SEARCH_REFILL:100}
+      delivery-target:
+        capacity: ${ADDRESS_API_RATE_LIMIT_TARGET_CAPACITY:500}
+        refill-tokens-per-second: ${ADDRESS_API_RATE_LIMIT_TARGET_REFILL:50}
+      default-policy:
+        capacity: ${ADDRESS_API_RATE_LIMIT_DEFAULT_CAPACITY:200}
+        refill-tokens-per-second: ${ADDRESS_API_RATE_LIMIT_DEFAULT_REFILL:20}
+
 management:
   endpoint:
     health:
