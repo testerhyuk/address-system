@@ -7,6 +7,18 @@ spring:
       - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
       - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
 
+address:
+  api-security:
+    enabled: false
+    allowed-clock-skew: 5m
+    replay-retention: 15m
+    replay-cleanup-interval: 10m
+    max-request-body-bytes: 65536
+    rate-limit:
+      enabled: false
+      stale-bucket-retention: 24h
+      cleanup-interval: 1h
+
 management:
   endpoint:
     health:

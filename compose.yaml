@@ -26,8 +26,44 @@ services:
     networks:
       - address-backend
 
+  nominatim:
+    profiles:
+      - osm
+    image: mediagis/nominatim:5.3.2
+    environment:
+      PBF_URL: ${NOMINATIM_PBF_URL:-https://download.geofabrik.de/asia/south-korea-latest.osm.pbf}
+      IMPORT_STYLE: address
+      UPDATE_MODE: none
+      IMPORT_WIKIPEDIA: "false"
+      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:-nominatim_local_password}
+      THREADS: ${NOMINATIM_IMPORT_THREADS:-4}
+      GUNICORN_WORKERS: ${NOMINATIM_API_WORKERS:-2}
+      POSTGRES_SHARED_BUFFERS: ${NOMINATIM_SHARED_BUFFERS:-1GB}
+      POSTGRES_MAINTENANCE_WORK_MEM: ${NOMINATIM_MAINTENANCE_WORK_MEM:-2GB}
+      POSTGRES_AUTOVACUUM_WORK_MEM: ${NOMINATIM_AUTOVACUUM_WORK_MEM:-512MB}
+      POSTGRES_WORK_MEM: ${NOMINATIM_WORK_MEM:-32MB}
+      POSTGRES_EFFECTIVE_CACHE_SIZE: ${NOMINATIM_EFFECTIVE_CACHE_SIZE:-4GB}
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "127.0.0.1:${NOMINATIM_PORT:-8081}:8080"
+    volumes:
+      - nominatim-postgres-data:/var/lib/postgresql/16/main
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/status >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 120
+      start_period: ${NOMINATIM_HEALTH_START_PERIOD:-30m}
+    stop_grace_period: 60s
+    shm_size: ${NOMINATIM_SHM_SIZE:-1gb}
+    restart: unless-stopped
+    networks:
+      - address-backend
+
 volumes:
   address-postgres-data:
+  nominatim-postgres-data:
 
 networks:
   address-backend:
