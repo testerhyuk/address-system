@@ -8,6 +8,10 @@ import com.address.address_system.address.search.application.AddressSearchServic
 import com.address.address_system.address.search.application.AddressSearchService.UnsupportedSearchParameterException;
 import com.address.address_system.address.target.application.DeliveryTargetService.DeliveryTargetException;
 import com.address.address_system.address.target.application.DeliveryTargetService.FailureCode;
+import com.address.address_system.address.coordinate.application.DeliveryCoordinateService.DeliveryCoordinateException;
+import com.address.address_system.address.coordinate.application.DeliveryCoordinateLookupService.CoordinateLookupException;
+import com.address.address_system.address.coordinate.admin.CoordinateAdminService.CoordinateAdminException;
+import com.address.address_system.address.geocoding.application.InitialCoordinateService.ResolutionException;
 
 import jakarta.validation.ConstraintViolationException;
 
@@ -67,6 +71,57 @@ public class ApiExceptionHandler {
             case ADDRESS_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case BUILDING_DONG_NOT_ALLOWED -> HttpStatus.UNPROCESSABLE_CONTENT;
             case INVALID_REQUEST, DETAIL_ADDRESS_NOT_ALLOWED -> HttpStatus.BAD_REQUEST;
+        };
+        return error(status, exception.getFailureCode().name(), exception.getMessage());
+    }
+
+    @ExceptionHandler(DeliveryCoordinateException.class)
+    public ResponseEntity<ApiErrorResponse> handleDeliveryCoordinate(
+            DeliveryCoordinateException exception
+    ) {
+        HttpStatus status = switch (exception.getFailureCode()) {
+            case DELIVERY_TARGET_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case EVENT_ID_CONFLICT -> HttpStatus.CONFLICT;
+            case INVALID_COORDINATE_EVENT -> HttpStatus.BAD_REQUEST;
+        };
+        return error(status, exception.getFailureCode().name(), exception.getMessage());
+    }
+
+    @ExceptionHandler(CoordinateLookupException.class)
+    public ResponseEntity<ApiErrorResponse> handleCoordinateLookup(
+            CoordinateLookupException exception
+    ) {
+        return error(
+                HttpStatus.NOT_FOUND,
+                exception.getFailureCode().name(),
+                exception.getMessage()
+        );
+    }
+
+    @ExceptionHandler(ResolutionException.class)
+    public ResponseEntity<ApiErrorResponse> handleCoordinateResolution(
+            ResolutionException exception
+    ) {
+        HttpStatus status = switch (exception.getFailureCode()) {
+            case ADDRESS_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case RETRY_DEFERRED, NOMINATIM_REQUEST_FAILED ->
+                    HttpStatus.SERVICE_UNAVAILABLE;
+            case COORDINATE_SAVE_FAILED -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+        return error(status, exception.getFailureCode().name(), exception.getMessage());
+    }
+
+    @ExceptionHandler(CoordinateAdminException.class)
+    public ResponseEntity<ApiErrorResponse> handleCoordinateAdmin(
+            CoordinateAdminException exception
+    ) {
+        HttpStatus status = switch (exception.getFailureCode()) {
+            case INVALID_OPERATION_REQUEST -> HttpStatus.BAD_REQUEST;
+            case DELIVERY_TARGET_NOT_FOUND, COORDINATE_VERSION_NOT_FOUND,
+                    ACTIVE_COORDINATE_NOT_FOUND ->
+                    HttpStatus.NOT_FOUND;
+            case CANDIDATE_NOT_REVIEWABLE, COORDINATE_VERSION_ALREADY_ACTIVE ->
+                    HttpStatus.CONFLICT;
         };
         return error(status, exception.getFailureCode().name(), exception.getMessage());
     }

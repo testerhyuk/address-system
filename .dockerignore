@@ -1,0 +1,12 @@
+.git
+.gradle
+.idea
+.agents
+data
+docs
+backups
+build/*
+!build/libs/
+!build/libs/address-system-*.jar
+*.log
+.env*

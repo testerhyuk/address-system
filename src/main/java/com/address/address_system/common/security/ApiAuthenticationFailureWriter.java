@@ -32,6 +32,15 @@ public class ApiAuthenticationFailureWriter {
         );
     }
 
+    public void forbidden(HttpServletResponse response) throws IOException {
+        write(
+                response,
+                HttpStatus.FORBIDDEN,
+                "FORBIDDEN",
+                "이 요청을 수행할 권한이 없습니다"
+        );
+    }
+
     public void payloadTooLarge(HttpServletResponse response) throws IOException {
         write(
                 response,

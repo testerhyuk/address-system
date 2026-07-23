@@ -1,0 +1,56 @@
+name: address-system-database-maintenance
+
+x-database-environment: &database-environment
+  PGHOST: ${ADDRESS_DB_HOST:?required}
+  PGPORT: ${ADDRESS_DB_PORT:?required}
+  PGDATABASE: ${ADDRESS_DB_NAME:?required}
+  PGUSER: ${ADDRESS_DB_USER:?required}
+  PGPASSWORD: ${ADDRESS_DB_PASSWORD:?required}
+  PGSSLMODE: ${ADDRESS_DB_SSL_MODE:-verify-full}
+  PGSSLROOTCERT: /run/secrets/address-db-ca
+
+services:
+  backup:
+    image: postgres:17
+    environment: *database-environment
+    secrets:
+      - address-db-ca
+    volumes:
+      - ./backups:/backups
+    command:
+      - sh
+      - -ec
+      - |
+        umask 077
+        pg_dump --format=custom --no-owner --no-privileges \
+          --exclude-table-data='coordinate_raw.*' \
+          --file="/backups/address_system_$$(date -u +%Y%m%dT%H%M%SZ).dump"
+    restart: "no"
+
+  restore:
+    profiles:
+      - restore
+    image: postgres:17
+    environment:
+      <<: *database-environment
+      BACKUP_FILE: ${BACKUP_FILE:-}
+      RESTORE_CONFIRM: ${RESTORE_CONFIRM:-NO}
+    secrets:
+      - address-db-ca
+    volumes:
+      - ./backups:/backups:ro
+    command:
+      - sh
+      - -ec
+      - |
+        test "$${RESTORE_CONFIRM}" = "YES"
+        test -n "$${BACKUP_FILE}"
+        case "$${BACKUP_FILE}" in *..*|*/*) exit 2 ;; esac
+        test -f "/backups/$${BACKUP_FILE}"
+        pg_restore --clean --if-exists --no-owner --no-privileges \
+          --dbname="$${PGDATABASE}" "/backups/$${BACKUP_FILE}"
+    restart: "no"
+
+secrets:
+  address-db-ca:
+    file: ${ADDRESS_DB_SSL_ROOT_CERT_FILE:?required}

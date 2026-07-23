@@ -8,6 +8,41 @@ spring:
       - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
 
 address:
+  delivery-coordinate:
+    max-gps-accuracy-meters: 100
+    max-event-age: 24h
+    allowed-future-skew: 5m
+    raw-retention: 30d
+    cleanup-interval: 1h
+  coordinate-analysis:
+    enabled: false
+    eps-meters: 25
+    min-points: 5
+    min-samples: 10
+    analysis-window: 30d
+    batch-size: 100
+    schedule-interval: 10m
+    max-attempts: 3
+    initial-retry-delay: 1m
+    max-retry-delay: 30m
+  coordinate-quality:
+    enabled: false
+    min-candidate-samples: 5
+    full-score-sample-count: 10
+    max-radius-meters: 20
+    max-outlier-ratio: 0.30
+    min-dominant-ratio: 0.60
+    min-dominance-gap: 0.15
+    min-promotion-score: 0.75
+    min-review-score: 0.55
+    confirmation-distance-meters: 10
+    max-automatic-shift-meters: 100
+    batch-size: 100
+    schedule-interval: 10m
+    policy-version: v1
+    max-attempts: 3
+    initial-retry-delay: 1m
+    max-retry-delay: 30m
   api-security:
     enabled: false
     allowed-clock-skew: 5m

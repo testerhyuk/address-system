@@ -17,6 +17,8 @@ address:
   api-security:
     client-id: ${ADDRESS_API_CLIENT_ID:local-delivery-system}
     client-secret: ${ADDRESS_API_CLIENT_SECRET:local-development-hmac-secret-change-me}
+    admin-client-id: ${ADDRESS_ADMIN_API_CLIENT_ID:local-address-operator}
+    admin-client-secret: ${ADDRESS_ADMIN_API_CLIENT_SECRET:local-development-admin-hmac-secret-change-me}
     rate-limit:
       address-search:
         capacity: ${ADDRESS_API_RATE_LIMIT_SEARCH_CAPACITY:1000}
@@ -24,9 +26,48 @@ address:
       delivery-target:
         capacity: ${ADDRESS_API_RATE_LIMIT_TARGET_CAPACITY:500}
         refill-tokens-per-second: ${ADDRESS_API_RATE_LIMIT_TARGET_REFILL:50}
+      delivery-coordinate:
+        capacity: ${ADDRESS_API_RATE_LIMIT_COORDINATE_CAPACITY:1000}
+        refill-tokens-per-second: ${ADDRESS_API_RATE_LIMIT_COORDINATE_REFILL:100}
       default-policy:
         capacity: ${ADDRESS_API_RATE_LIMIT_DEFAULT_CAPACITY:200}
         refill-tokens-per-second: ${ADDRESS_API_RATE_LIMIT_DEFAULT_REFILL:20}
+
+  delivery-coordinate:
+    max-gps-accuracy-meters: ${DELIVERY_COORDINATE_MAX_ACCURACY:100}
+    max-event-age: ${DELIVERY_COORDINATE_MAX_EVENT_AGE:24h}
+    allowed-future-skew: ${DELIVERY_COORDINATE_FUTURE_SKEW:5m}
+    raw-retention: ${DELIVERY_COORDINATE_RAW_RETENTION:30d}
+    cleanup-interval: ${DELIVERY_COORDINATE_CLEANUP_INTERVAL:1h}
+  coordinate-analysis:
+    enabled: ${COORDINATE_ANALYSIS_ENABLED:false}
+    eps-meters: ${COORDINATE_ANALYSIS_EPS_METERS:25}
+    min-points: ${COORDINATE_ANALYSIS_MIN_POINTS:5}
+    min-samples: ${COORDINATE_ANALYSIS_MIN_SAMPLES:10}
+    analysis-window: ${COORDINATE_ANALYSIS_WINDOW:30d}
+    batch-size: ${COORDINATE_ANALYSIS_BATCH_SIZE:100}
+    schedule-interval: ${COORDINATE_ANALYSIS_INTERVAL:10m}
+    max-attempts: ${COORDINATE_ANALYSIS_MAX_ATTEMPTS:3}
+    initial-retry-delay: ${COORDINATE_ANALYSIS_INITIAL_RETRY_DELAY:1m}
+    max-retry-delay: ${COORDINATE_ANALYSIS_MAX_RETRY_DELAY:30m}
+  coordinate-quality:
+    enabled: ${COORDINATE_QUALITY_ENABLED:false}
+    min-candidate-samples: ${COORDINATE_QUALITY_MIN_CANDIDATE_SAMPLES:5}
+    full-score-sample-count: ${COORDINATE_QUALITY_FULL_SCORE_SAMPLES:10}
+    max-radius-meters: ${COORDINATE_QUALITY_MAX_RADIUS_METERS:20}
+    max-outlier-ratio: ${COORDINATE_QUALITY_MAX_OUTLIER_RATIO:0.30}
+    min-dominant-ratio: ${COORDINATE_QUALITY_MIN_DOMINANT_RATIO:0.60}
+    min-dominance-gap: ${COORDINATE_QUALITY_MIN_DOMINANCE_GAP:0.15}
+    min-promotion-score: ${COORDINATE_QUALITY_MIN_PROMOTION_SCORE:0.75}
+    min-review-score: ${COORDINATE_QUALITY_MIN_REVIEW_SCORE:0.55}
+    confirmation-distance-meters: ${COORDINATE_QUALITY_CONFIRMATION_DISTANCE_METERS:10}
+    max-automatic-shift-meters: ${COORDINATE_QUALITY_MAX_AUTOMATIC_SHIFT_METERS:100}
+    batch-size: ${COORDINATE_QUALITY_BATCH_SIZE:100}
+    schedule-interval: ${COORDINATE_QUALITY_INTERVAL:10m}
+    policy-version: ${COORDINATE_QUALITY_POLICY_VERSION:v1}
+    max-attempts: ${COORDINATE_QUALITY_MAX_ATTEMPTS:3}
+    initial-retry-delay: ${COORDINATE_QUALITY_INITIAL_RETRY_DELAY:1m}
+    max-retry-delay: ${COORDINATE_QUALITY_MAX_RETRY_DELAY:30m}
 
 management:
   endpoint:
