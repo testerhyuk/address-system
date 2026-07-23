@@ -10,6 +10,7 @@ public record ApiRateLimitProperties(
         boolean enabled,
         Policy addressSearch,
         Policy deliveryTarget,
+        Policy deliveryCoordinate,
         Policy defaultPolicy,
         Duration staleBucketRetention,
         Duration cleanupInterval
@@ -25,6 +26,7 @@ public record ApiRateLimitProperties(
             throw new IllegalArgumentException("cleanupInterval must be positive");
         }
         if (enabled && (addressSearch == null || deliveryTarget == null
+                || deliveryCoordinate == null
                 || defaultPolicy == null)) {
             throw new IllegalArgumentException(
                     "all API rate limit policies must be configured when enabled"

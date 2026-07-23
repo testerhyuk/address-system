@@ -15,6 +15,8 @@ import java.util.UUID;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import com.address.address_system.common.security.ApiSecurityProperties.ApiClientRole;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -50,12 +52,7 @@ public class HmacSignatureVerifier {
         String requestIdValue = requiredHeader(request, REQUEST_ID_HEADER);
         String signatureValue = requiredHeader(request, SIGNATURE_HEADER);
 
-        if (!MessageDigest.isEqual(
-                clientId.getBytes(StandardCharsets.UTF_8),
-                properties.clientId().getBytes(StandardCharsets.UTF_8)
-        )) {
-            throw new InvalidHmacRequestException();
-        }
+        ApiClientRole role = resolveRole(clientId);
 
         Instant requestTimestamp = parseTimestamp(timestampValue);
         verifyTimestamp(requestTimestamp);
@@ -67,13 +64,30 @@ public class HmacSignatureVerifier {
                 requestTarget(request),
                 timestampValue,
                 requestIdValue,
-                body
+                body,
+                properties.clientSecretBytes(role)
         );
         if (!MessageDigest.isEqual(expectedSignature, suppliedSignature)) {
             throw new InvalidHmacRequestException();
         }
 
-        return new VerifiedRequest(clientId, requestId, requestTimestamp);
+        return new VerifiedRequest(clientId, requestId, requestTimestamp, role);
+    }
+
+    private ApiClientRole resolveRole(String clientId) {
+        byte[] supplied = clientId.getBytes(StandardCharsets.UTF_8);
+        boolean deliveryClient = MessageDigest.isEqual(
+                supplied,
+                properties.clientId().getBytes(StandardCharsets.UTF_8)
+        );
+        boolean adminClient = MessageDigest.isEqual(
+                supplied,
+                properties.adminClientId().getBytes(StandardCharsets.UTF_8)
+        );
+        if (!deliveryClient && !adminClient) {
+            throw new InvalidHmacRequestException();
+        }
+        return adminClient ? ApiClientRole.ADMIN : ApiClientRole.DELIVERY;
     }
 
     private String requiredHeader(HttpServletRequest request, String name) {
@@ -131,7 +145,8 @@ public class HmacSignatureVerifier {
             String requestTarget,
             String timestamp,
             String requestId,
-            byte[] body
+            byte[] body,
+            byte[] clientSecret
     ) {
         String bodyHash = HexFormat.of().formatHex(sha256(body));
         String canonicalRequest = String.join(
@@ -144,7 +159,7 @@ public class HmacSignatureVerifier {
         );
         try {
             Mac mac = Mac.getInstance(HMAC_ALGORITHM);
-            mac.init(new SecretKeySpec(properties.clientSecretBytes(), HMAC_ALGORITHM));
+            mac.init(new SecretKeySpec(clientSecret, HMAC_ALGORITHM));
             return mac.doFinal(canonicalRequest.getBytes(StandardCharsets.UTF_8));
         }
         catch (GeneralSecurityException exception) {
@@ -169,7 +184,8 @@ public class HmacSignatureVerifier {
     public record VerifiedRequest(
             String clientId,
             UUID requestId,
-            Instant requestTimestamp
+            Instant requestTimestamp,
+            ApiClientRole role
     ) {
     }
 

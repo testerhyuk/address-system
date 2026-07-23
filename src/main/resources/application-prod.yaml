@@ -3,7 +3,7 @@ spring:
     activate:
       on-profile: prod
   datasource:
-    url: jdbc:postgresql://${ADDRESS_DB_HOST}:${ADDRESS_DB_PORT}/${ADDRESS_DB_NAME}?sslmode=${ADDRESS_DB_SSL_MODE:require}&ApplicationName=address-system
+    url: jdbc:postgresql://${ADDRESS_DB_HOST}:${ADDRESS_DB_PORT}/${ADDRESS_DB_NAME}?sslmode=${ADDRESS_DB_SSL_MODE:verify-full}&sslrootcert=${ADDRESS_DB_SSL_ROOT_CERT}&ApplicationName=address-system
     username: ${ADDRESS_DB_USER}
     password: ${ADDRESS_DB_PASSWORD}
     hikari:
@@ -14,9 +14,18 @@ spring:
       connection-init-sql: SET search_path TO address, public
 
 address:
+  coordinate:
+    nominatim:
+      base-url: ${NOMINATIM_BASE_URL}
+      connect-timeout: ${NOMINATIM_CONNECT_TIMEOUT}
+      read-timeout: ${NOMINATIM_READ_TIMEOUT}
+      retry-delay: ${NOMINATIM_RETRY_DELAY}
+      max-results: ${NOMINATIM_MAX_RESULTS}
   api-security:
     client-id: ${ADDRESS_API_CLIENT_ID}
     client-secret: ${ADDRESS_API_CLIENT_SECRET}
+    admin-client-id: ${ADDRESS_ADMIN_API_CLIENT_ID}
+    admin-client-secret: ${ADDRESS_ADMIN_API_CLIENT_SECRET}
     rate-limit:
       address-search:
         capacity: ${ADDRESS_API_RATE_LIMIT_SEARCH_CAPACITY}
@@ -24,9 +33,48 @@ address:
       delivery-target:
         capacity: ${ADDRESS_API_RATE_LIMIT_TARGET_CAPACITY}
         refill-tokens-per-second: ${ADDRESS_API_RATE_LIMIT_TARGET_REFILL}
+      delivery-coordinate:
+        capacity: ${ADDRESS_API_RATE_LIMIT_COORDINATE_CAPACITY}
+        refill-tokens-per-second: ${ADDRESS_API_RATE_LIMIT_COORDINATE_REFILL}
       default-policy:
         capacity: ${ADDRESS_API_RATE_LIMIT_DEFAULT_CAPACITY}
         refill-tokens-per-second: ${ADDRESS_API_RATE_LIMIT_DEFAULT_REFILL}
+
+  delivery-coordinate:
+    max-gps-accuracy-meters: ${DELIVERY_COORDINATE_MAX_ACCURACY}
+    max-event-age: ${DELIVERY_COORDINATE_MAX_EVENT_AGE}
+    allowed-future-skew: ${DELIVERY_COORDINATE_FUTURE_SKEW}
+    raw-retention: ${DELIVERY_COORDINATE_RAW_RETENTION}
+    cleanup-interval: ${DELIVERY_COORDINATE_CLEANUP_INTERVAL:1h}
+  coordinate-analysis:
+    enabled: ${COORDINATE_ANALYSIS_ENABLED:true}
+    eps-meters: ${COORDINATE_ANALYSIS_EPS_METERS}
+    min-points: ${COORDINATE_ANALYSIS_MIN_POINTS}
+    min-samples: ${COORDINATE_ANALYSIS_MIN_SAMPLES}
+    analysis-window: ${COORDINATE_ANALYSIS_WINDOW}
+    batch-size: ${COORDINATE_ANALYSIS_BATCH_SIZE:100}
+    schedule-interval: ${COORDINATE_ANALYSIS_INTERVAL:10m}
+    max-attempts: ${COORDINATE_ANALYSIS_MAX_ATTEMPTS}
+    initial-retry-delay: ${COORDINATE_ANALYSIS_INITIAL_RETRY_DELAY}
+    max-retry-delay: ${COORDINATE_ANALYSIS_MAX_RETRY_DELAY}
+  coordinate-quality:
+    enabled: ${COORDINATE_QUALITY_ENABLED:true}
+    min-candidate-samples: ${COORDINATE_QUALITY_MIN_CANDIDATE_SAMPLES}
+    full-score-sample-count: ${COORDINATE_QUALITY_FULL_SCORE_SAMPLES}
+    max-radius-meters: ${COORDINATE_QUALITY_MAX_RADIUS_METERS}
+    max-outlier-ratio: ${COORDINATE_QUALITY_MAX_OUTLIER_RATIO}
+    min-dominant-ratio: ${COORDINATE_QUALITY_MIN_DOMINANT_RATIO}
+    min-dominance-gap: ${COORDINATE_QUALITY_MIN_DOMINANCE_GAP}
+    min-promotion-score: ${COORDINATE_QUALITY_MIN_PROMOTION_SCORE}
+    min-review-score: ${COORDINATE_QUALITY_MIN_REVIEW_SCORE}
+    confirmation-distance-meters: ${COORDINATE_QUALITY_CONFIRMATION_DISTANCE_METERS}
+    max-automatic-shift-meters: ${COORDINATE_QUALITY_MAX_AUTOMATIC_SHIFT_METERS}
+    batch-size: ${COORDINATE_QUALITY_BATCH_SIZE:100}
+    schedule-interval: ${COORDINATE_QUALITY_INTERVAL:10m}
+    policy-version: ${COORDINATE_QUALITY_POLICY_VERSION}
+    max-attempts: ${COORDINATE_QUALITY_MAX_ATTEMPTS}
+    initial-retry-delay: ${COORDINATE_QUALITY_INITIAL_RETRY_DELAY}
+    max-retry-delay: ${COORDINATE_QUALITY_MAX_RETRY_DELAY}
 
 management:
   endpoint:

@@ -18,6 +18,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 import com.address.address_system.common.security.HmacSignatureVerifier.InvalidHmacRequestException;
 import com.address.address_system.common.security.HmacSignatureVerifier.VerifiedRequest;
+import com.address.address_system.common.security.ApiSecurityProperties.ApiClientRole;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -27,6 +28,8 @@ class HmacSignatureVerifierTest {
     private static final Instant NOW = Instant.parse("2026-07-19T12:00:00Z");
     private static final String CLIENT_ID = "delivery-system";
     private static final String SECRET = "0123456789abcdef0123456789abcdef";
+    private static final String ADMIN_CLIENT_ID = "address-operator";
+    private static final String ADMIN_SECRET = "abcdef0123456789abcdef0123456789";
     private static final UUID REQUEST_ID =
             UUID.fromString("00000000-0000-4000-8000-000000000701");
 
@@ -47,6 +50,26 @@ class HmacSignatureVerifierTest {
         assertThat(verified.clientId()).isEqualTo(CLIENT_ID);
         assertThat(verified.requestId()).isEqualTo(REQUEST_ID);
         assertThat(verified.requestTimestamp()).isEqualTo(NOW);
+        assertThat(verified.role()).isEqualTo(ApiClientRole.DELIVERY);
+    }
+
+    @Test
+    void acceptsAdminSignatureWithAdminRole() throws Exception {
+        byte[] body = "{\"reason\":\"reviewed\"}"
+                .getBytes(StandardCharsets.UTF_8);
+        MockHttpServletRequest request = signedRequest(
+                NOW,
+                REQUEST_ID,
+                body,
+                ADMIN_CLIENT_ID,
+                ADMIN_SECRET,
+                "/api/v1/admin/coordinate-candidates/example/approve"
+        );
+
+        VerifiedRequest verified = verifier.verify(request, body);
+
+        assertThat(verified.clientId()).isEqualTo(ADMIN_CLIENT_ID);
+        assertThat(verified.role()).isEqualTo(ApiClientRole.ADMIN);
     }
 
     @Test
@@ -99,23 +122,42 @@ class HmacSignatureVerifierTest {
             UUID requestId,
             byte[] body
     ) throws Exception {
+        return signedRequest(
+                timestamp,
+                requestId,
+                body,
+                CLIENT_ID,
+                SECRET,
+                "/api/v1/delivery-targets"
+        );
+    }
+
+    private MockHttpServletRequest signedRequest(
+            Instant timestamp,
+            UUID requestId,
+            byte[] body,
+            String clientId,
+            String secret,
+            String path
+    ) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest(
                 "POST",
-                "/api/v1/delivery-targets"
+                path
         );
         String timestampValue = timestamp.toString();
         String requestIdValue = requestId.toString();
-        request.addHeader(HmacSignatureVerifier.CLIENT_ID_HEADER, CLIENT_ID);
+        request.addHeader(HmacSignatureVerifier.CLIENT_ID_HEADER, clientId);
         request.addHeader(HmacSignatureVerifier.TIMESTAMP_HEADER, timestampValue);
         request.addHeader(HmacSignatureVerifier.REQUEST_ID_HEADER, requestIdValue);
         request.addHeader(
                 HmacSignatureVerifier.SIGNATURE_HEADER,
                 signature(
                         "POST",
-                        "/api/v1/delivery-targets",
+                        path,
                         timestampValue,
                         requestIdValue,
-                        body
+                        body,
+                        secret
                 )
         );
         return request;
@@ -126,7 +168,8 @@ class HmacSignatureVerifierTest {
             String target,
             String timestamp,
             String requestId,
-            byte[] body
+            byte[] body,
+            String secret
     ) throws Exception {
         String bodyHash = HexFormat.of().formatHex(
                 MessageDigest.getInstance("SHA-256").digest(body)
@@ -141,7 +184,7 @@ class HmacSignatureVerifierTest {
         );
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(
-                SECRET.getBytes(StandardCharsets.UTF_8),
+                secret.getBytes(StandardCharsets.UTF_8),
                 "HmacSHA256"
         ));
         return Base64.getEncoder().encodeToString(
@@ -154,6 +197,8 @@ class HmacSignatureVerifierTest {
                 true,
                 CLIENT_ID,
                 SECRET,
+                ADMIN_CLIENT_ID,
+                ADMIN_SECRET,
                 Duration.ofMinutes(5),
                 Duration.ofMinutes(15),
                 Duration.ofMinutes(10),

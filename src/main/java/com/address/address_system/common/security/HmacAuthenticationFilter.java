@@ -13,6 +13,7 @@ import java.util.List;
 import com.address.address_system.common.security.HmacSignatureVerifier.InvalidHmacRequestException;
 import com.address.address_system.common.security.HmacSignatureVerifier.VerifiedRequest;
 import com.address.address_system.common.security.ApiRateLimitService.Decision;
+import com.address.address_system.common.security.ApiSecurityProperties.ApiClientRole;
 
 import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletInputStream;
@@ -122,7 +123,11 @@ public class HmacAuthenticationFilter extends OncePerRequestFilter {
                     new UsernamePasswordAuthenticationToken(
                             verified.clientId(),
                             null,
-                            List.of(new SimpleGrantedAuthority("ROLE_API_CLIENT"))
+                            List.of(new SimpleGrantedAuthority(
+                                    verified.role() == ApiClientRole.ADMIN
+                                            ? "ROLE_ADMIN"
+                                            : "ROLE_API_CLIENT"
+                            ))
                     );
             SecurityContext context = SecurityContextHolder.createEmptyContext();
             context.setAuthentication(authentication);

@@ -71,10 +71,9 @@ public class NominatimClient {
                 () -> restClient.get()
                         .uri(uriBuilder -> uriBuilder
                                 .path("/search")
-                                .queryParam("street", query.buildingNumber() + " " + query.roadName())
-                                .queryParam("city", query.sido())
-                                .queryParamIfPresent("county", query.sigunguOptional())
+                                .queryParam("q", query.freeFormAddress())
                                 .queryParam("countrycodes", "kr")
+                                .queryParam("accept-language", "ko")
                                 .queryParam("layer", "address")
                                 .queryParam("format", "jsonv2")
                                 .queryParam("addressdetails", 1)
@@ -157,10 +156,13 @@ public class NominatimClient {
             requireText(buildingNumber, "buildingNumber");
         }
 
-        java.util.Optional<String> sigunguOptional() {
-            return sigungu == null || sigungu.isBlank()
-                    ? java.util.Optional.empty()
-                    : java.util.Optional.of(sigungu);
+        String freeFormAddress() {
+            if (sigungu == null || sigungu.isBlank()) {
+                return String.join(" ", sido, roadName, buildingNumber);
+            }
+            return String.join(
+                    " ", sido, sigungu, roadName, buildingNumber
+            );
         }
 
         private static void requireText(String value, String name) {

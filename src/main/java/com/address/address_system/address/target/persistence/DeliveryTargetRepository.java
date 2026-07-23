@@ -33,6 +33,10 @@ public class DeliveryTargetRepository {
     private static final String REACTIVATE_TARGET = """
             UPDATE address.delivery_target
             SET status = 'ACTIVE',
+                coordinate_serving_status = CASE
+                    WHEN status = 'INACTIVE' THEN 'ENABLED'
+                    ELSE coordinate_serving_status
+                END,
                 version_no = CASE
                     WHEN status = 'INACTIVE' THEN version_no + 1
                     ELSE version_no

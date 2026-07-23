@@ -63,10 +63,12 @@ class NominatimClientTest {
     }
 
     @Test
-    void sendsStructuredKoreanAddressQueryAndParsesCandidates() {
+    void sendsFreeFormKoreanAddressQueryAndParsesCandidates() {
         server.expect(requestTo(containsString("/search?")))
                 .andExpect(method(HttpMethod.GET))
+                .andExpect(requestTo(containsString("q=")))
                 .andExpect(requestTo(containsString("countrycodes=kr")))
+                .andExpect(requestTo(containsString("accept-language=ko")))
                 .andExpect(requestTo(containsString("addressdetails=1")))
                 .andRespond(withSuccess(
                         """

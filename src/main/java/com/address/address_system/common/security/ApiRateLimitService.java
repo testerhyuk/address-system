@@ -13,6 +13,7 @@ public class ApiRateLimitService {
 
     private static final String ADDRESS_SEARCH_KEY = "ADDRESS_SEARCH";
     private static final String DELIVERY_TARGET_KEY = "DELIVERY_TARGET";
+    private static final String DELIVERY_COORDINATE_KEY = "DELIVERY_COORDINATE";
     private static final String DEFAULT_KEY = "DEFAULT_API";
 
     private final ApiRateLimitProperties properties;
@@ -70,6 +71,13 @@ public class ApiRateLimitService {
             return new PolicySelection(
                     DELIVERY_TARGET_KEY,
                     properties.deliveryTarget()
+            );
+        }
+        if ("POST".equalsIgnoreCase(method)
+                && "/api/v1/delivery-coordinates".equals(requestUri)) {
+            return new PolicySelection(
+                    DELIVERY_COORDINATE_KEY,
+                    properties.deliveryCoordinate()
             );
         }
         return new PolicySelection(DEFAULT_KEY, properties.defaultPolicy());

@@ -32,11 +32,15 @@ public class ApiSecurityConfiguration {
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(
                         (request, response, exception) ->
                                 failureWriter.unauthorized(response)
+                ).accessDeniedHandler(
+                        (request, response, exception) ->
+                                failureWriter.forbidden(response)
                 ));
 
         if (properties.enabled()) {
             http.authorizeHttpRequests(authorize -> authorize
                     .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                    .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                     .requestMatchers("/api/v1/**").authenticated()
                     .anyRequest().denyAll()
             );

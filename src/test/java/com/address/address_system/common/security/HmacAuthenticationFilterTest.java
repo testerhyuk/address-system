@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.address.address_system.common.security.HmacSignatureVerifier.VerifiedRequest;
 import com.address.address_system.common.security.ApiRateLimitService.Decision;
+import com.address.address_system.common.security.ApiSecurityProperties.ApiClientRole;
 
 import jakarta.servlet.FilterChain;
 import tools.jackson.databind.json.JsonMapper;
@@ -53,7 +54,8 @@ class HmacAuthenticationFilterTest {
         VerifiedRequest verified = new VerifiedRequest(
                 "delivery-system",
                 REQUEST_ID,
-                NOW
+                NOW,
+                ApiClientRole.DELIVERY
         );
         when(verifier.verify(any(), eq(body))).thenReturn(verified);
         when(replayRepository.claim(
@@ -82,6 +84,32 @@ class HmacAuthenticationFilterTest {
     }
 
     @Test
+    void grantsAdminRoleOnlyToVerifiedAdminClient() throws Exception {
+        byte[] body = new byte[0];
+        HmacAuthenticationFilter filter = filter(65_536);
+        MockHttpServletRequest request = apiRequest(body);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(verifier.verify(any(), eq(body))).thenReturn(new VerifiedRequest(
+                "address-operator",
+                REQUEST_ID,
+                NOW,
+                ApiClientRole.ADMIN
+        ));
+        when(replayRepository.claim(any(), any(), any(), any())).thenReturn(true);
+        when(rateLimitService.consume(any(), any(), any()))
+                .thenReturn(Decision.allowed(200, 199));
+        AtomicReference<String> authority = new AtomicReference<>();
+        FilterChain chain = (servletRequest, servletResponse) -> authority.set(
+                SecurityContextHolder.getContext().getAuthentication()
+                        .getAuthorities().iterator().next().getAuthority()
+        );
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(authority).hasValue("ROLE_ADMIN");
+    }
+
+    @Test
     void rejectsAlreadyClaimedRequestId() throws Exception {
         byte[] body = new byte[0];
         HmacAuthenticationFilter filter = filter(65_536);
@@ -90,7 +118,8 @@ class HmacAuthenticationFilterTest {
         when(verifier.verify(any(), eq(body))).thenReturn(new VerifiedRequest(
                 "delivery-system",
                 REQUEST_ID,
-                NOW
+                NOW,
+                ApiClientRole.DELIVERY
         ));
         when(replayRepository.claim(any(), any(), any(), any())).thenReturn(false);
 
@@ -126,7 +155,8 @@ class HmacAuthenticationFilterTest {
         when(verifier.verify(any(), eq(body))).thenReturn(new VerifiedRequest(
                 "delivery-system",
                 REQUEST_ID,
-                NOW
+                NOW,
+                ApiClientRole.DELIVERY
         ));
         when(replayRepository.claim(any(), any(), any(), any()))
                 .thenThrow(new DataAccessResourceFailureException("database unavailable"));
@@ -148,7 +178,8 @@ class HmacAuthenticationFilterTest {
         when(verifier.verify(any(), eq(body))).thenReturn(new VerifiedRequest(
                 "delivery-system",
                 REQUEST_ID,
-                NOW
+                NOW,
+                ApiClientRole.DELIVERY
         ));
         when(replayRepository.claim(any(), any(), any(), any())).thenReturn(true);
         when(rateLimitService.consume(any(), any(), any()))

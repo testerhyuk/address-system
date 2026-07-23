@@ -38,6 +38,8 @@ out/
 
 ### Local environment ###
 .env
+.env.prod
+backups/
 
 ### Local data and documentation ###
 data/

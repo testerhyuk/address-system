@@ -58,6 +58,7 @@ class ApiRateLimitServiceTest {
                 true,
                 SEARCH,
                 TARGET,
+                TARGET,
                 slowPolicy,
                 Duration.ofHours(24),
                 Duration.ofHours(1)
@@ -92,6 +93,7 @@ class ApiRateLimitServiceTest {
                 new ApiRateLimitProperties(
                         enabled,
                         enabled ? SEARCH : null,
+                        enabled ? TARGET : null,
                         enabled ? TARGET : null,
                         enabled ? DEFAULT : null,
                         Duration.ofHours(24),
